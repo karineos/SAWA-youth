@@ -12,8 +12,7 @@ import psycopg2
 import psycopg2.extras
 APP_DIR = Path(__file__).resolve().parent
 DB_PATH = APP_DIR / "data" / "crm.sqlite"
-DATABASE_URL = os.environ.get("DATABASE_URL")
-
+database_url = os.environ.get("DATABASE_URL")
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-this")
 def get_db():

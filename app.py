@@ -15,6 +15,37 @@ DB_PATH = APP_DIR / "data" / "crm.sqlite"
 database_url = os.environ.get("DATABASE_URL")
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-this")
+
+
+class DbWrapper:
+    def __init__(self, conn, is_postgres=False):
+        self.conn = conn
+        self.is_postgres = is_postgres
+
+    def _sql(self, sql):
+        if self.is_postgres:
+            sql = sql.replace("?", "%s")
+            sql = sql.replace("datetime('now')", "CURRENT_TIMESTAMP")
+            sql = sql.replace("INSERT OR IGNORE", "INSERT")
+        return sql
+
+    def execute(self, sql, params=()):
+        cur = self.conn.cursor()
+        cur.execute(self._sql(sql), params)
+        return cur
+
+    def executescript(self, script):
+        cur = self.conn.cursor()
+        cur.execute(script)
+        return cur
+
+    def commit(self):
+        return self.conn.commit()
+
+    def close(self):
+        return self.conn.close()
+
+
 def get_db():
     database_url = os.environ.get("DATABASE_URL")
 

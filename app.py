@@ -7,20 +7,30 @@ import psycopg2.extras
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from pathlib import Path
-
+import os
+import psycopg2
+import psycopg2.extras
 APP_DIR = Path(__file__).resolve().parent
 DB_PATH = APP_DIR / "data" / "crm.sqlite"
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-this")
-
 def get_db():
+    database_url = os.environ.get("DATABASE_URL")
+
+    if database_url:
+        conn = psycopg2.connect(
+            database_url,
+            cursor_factory=psycopg2.extras.RealDictCursor
+        )
+        return DbWrapper(conn, True)
+
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    return conn
-
+    return DbWrapper(conn, False)
 
 def init_admins():
     conn = get_db()

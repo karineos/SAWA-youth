@@ -1,0 +1,13 @@
+{% extends 'base.html' %}{% block content %}
+<div class="actions" style="justify-content:space-between">
+  <h1>Survey Responses</h1>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('survey_forms') }}">Survey Builder</a>
+    <a class="btn secondary" href="{{ url_for('survey_form_new') }}">+ Create Survey</a>
+  </div>
+</div>
+<form class="search"><input name="q" placeholder="Search survey answers by name, phone, city, university, answers..." value="{{ q }}"><button class="btn">Search</button></form>
+<div class="card scroll"><table class="wide"><tr><th>Name</th><th>Phone</th><th>Birth Date</th><th>City</th><th>Status</th><th>University / School</th><th>Field / Work</th><th>English</th><th>Heard From</th><th>View</th></tr>
+{% for s in surveys %}<tr><td>{{ s.full_name }}</td><td>{{ s.phone }}</td><td>{{ s.birth_date }}</td><td>{{ s.city }}</td><td>{{ s.current_status }}</td><td>{{ s.university_school }}</td><td>{{ s.field_work }}</td><td>{{ s.english_level }}</td><td>{{ s.heard_from }}</td><td class="actions"><a class="btn secondary" href="{{ url_for('survey_detail', survey_id=s.id) }}">Open</a>
+<form method="post" action="{{ url_for('survey_response_delete', survey_id=s.id) }}" onsubmit="return confirm('Delete this survey response?')"><button class="btn danger">Delete</button></form></td></tr>{% endfor %}
+</table></div>{% endblock %}

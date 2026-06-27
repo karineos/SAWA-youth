@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Add Survey Response</h1>
+<div class="card"><h2>{{ survey_form.title }}</h2><p>{{ survey_form.description or '' }}</p></div>
+<form method="post" class="card">
+  <div class="form-grid">
+    {% for q in questions %}
+      {% set label = q.question_text.lower() %}
+      {% set key =
+        'full_name' if 'name' in label else
+        'phone' if 'phone' in label or 'mobile' in label else
+        'birth_date' if 'birth' in label else
+        'gender' if 'gender' in label else
+        'city' if 'city' in label or 'area' in label else
+        'current_status' if 'status' in label else
+        'university_school' if 'university' in label or 'school' in label else
+        'field_work' if 'field' in label or 'work' in label else
+        'english_level' if 'english' in label else
+        'interest_reason' if 'interest' in label or 'why' in label else
+        'attended_before' if 'attended' in label or 'before' in label else
+        'learn_most' if 'learn' in label else
+        'heard_from' if 'hear' in label or 'heard' in label else
+        q.field_key
+      %}
+      <div class="{% if q.field_type == 'textarea' %}full{% endif %}">
+        <label>{{ q.question_text }}</label>
+        {% if q.field_type == 'textarea' %}
+          <textarea name="{{ key }}"></textarea>
+        {% else %}
+          <input type="{{ q.field_type if q.field_type in ['date','number'] else 'text' }}" name="{{ key }}">
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  <br>
+  <button class="btn">Save Response</button>
+  <a class="btn secondary" href="{{ url_for('survey_forms') }}">Cancel</a>
+</form>
+{% endblock %}

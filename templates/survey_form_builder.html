@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>{{ 'Edit Survey Reference' if survey_form else 'Add Survey Reference' }}</h1>
+
+<form method="post" class="card">
+  <div class="form-grid">
+    <div class="full">
+      <label>Survey Title</label>
+      <input name="title" required value="{{ survey_form.title if survey_form else '' }}" placeholder="Example: AI Workshop Feedback Form">
+    </div>
+
+    <div class="full">
+      <label>Excel / Google Sheet Link</label>
+      <input name="source_link" value="{{ survey_form.source_link if survey_form else '' }}" placeholder="Paste the Google Sheet, Excel Online, or Drive link here">
+    </div>
+
+    <div>
+      <label>Sheet Name / File Name</label>
+      <input name="source_sheet_name" value="{{ survey_form.source_sheet_name if survey_form else '' }}" placeholder="Example: AI Workshop Responses">
+    </div>
+
+    <div>
+      <label>Source Notes</label>
+      <input name="source_notes" value="{{ survey_form.source_notes if survey_form else '' }}" placeholder="Example: Main survey sheet for AI workshop">
+    </div>
+
+    <div class="full">
+      <label>Description</label>
+      <textarea name="description">{{ survey_form.description if survey_form else '' }}</textarea>
+    </div>
+  </div>
+
+  <h2>Optional Manual Response Questions</h2>
+  <p class="label">
+    You can keep only the link, or also create questions here if you want to manually add survey responses inside the CRM.
+  </p>
+
+  <div id="questions">
+    {% if questions %}
+      {% for q in questions %}
+      <div class="question-row">
+        <input name="question_text" value="{{ q.question_text }}" placeholder="Question">
+        <select name="field_type">
+          <option value="text" {% if q.field_type == 'text' %}selected{% endif %}>Short text</option>
+          <option value="textarea" {% if q.field_type == 'textarea' %}selected{% endif %}>Long answer</option>
+          <option value="date" {% if q.field_type == 'date' %}selected{% endif %}>Date</option>
+          <option value="number" {% if q.field_type == 'number' %}selected{% endif %}>Number</option>
+        </select>
+        <button type="button" class="btn danger" onclick="this.parentElement.remove()">Remove</button>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="question-row">
+        <input name="question_text" value="Full Name" placeholder="Question">
+        <select name="field_type"><option value="text">Short text</option><option value="textarea">Long answer</option><option value="date">Date</option><option value="number">Number</option></select>
+        <button type="button" class="btn danger" onclick="this.parentElement.remove()">Remove</button>
+      </div>
+    {% endif %}
+  </div>
+
+  <br>
+  <button type="button" class="btn secondary" onclick="addQuestion()">+ Add Question</button>
+  <button class="btn">Save Survey</button>
+  <a class="btn secondary" href="{{ url_for('survey_forms') }}">Cancel</a>
+</form>
+
+<script>
+function addQuestion(){
+  const box = document.getElementById('questions');
+  const row = document.createElement('div');
+  row.className = 'question-row';
+  row.innerHTML = `<input name="question_text" placeholder="Question">
+    <select name="field_type"><option value="text">Short text</option><option value="textarea">Long answer</option><option value="date">Date</option><option value="number">Number</option></select>
+    <button type="button" class="btn danger" onclick="this.parentElement.remove()">Remove</button>`;
+  box.appendChild(row);
+}
+</script>
+{% endblock %}

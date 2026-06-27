@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="actions" style="justify-content:space-between">
+  <h1>Survey Library</h1>
+  <a class="btn" href="{{ url_for('survey_form_new') }}">+ Add Survey</a>
+</div>
+
+<div class="card">
+  <p class="label">
+    This section is for survey references, Google Sheets / Excel links, and survey responses.
+    Survey entries are kept separate from Members so names from survey answers do not affect attendance/member data.
+  </p>
+</div>
+
+<div class="card scroll">
+  <table class="wide">
+    <tr>
+      <th>Survey</th>
+      <th>Sheet / Source</th>
+      <th>Source Link</th>
+      <th>Responses</th>
+      <th>Actions</th>
+    </tr>
+    {% for s in survey_forms %}
+    <tr>
+      <td>
+        <b>{{ s.title }}</b><br>
+        <span class="label">{{ s.description or '' }}</span>
+      </td>
+      <td>{{ s.source_sheet_name or '' }}</td>
+      <td>
+        {% if s.source_link %}
+          <a class="btn secondary" href="{{ url_for('survey_source', form_id=s.id) }}" target="_blank">Open Sheet</a>
+        {% else %}
+          <span class="label">No link added</span>
+        {% endif %}
+      </td>
+      <td>{{ s.response_count }}</td>
+      <td class="actions">
+        <a class="btn" href="{{ url_for('survey_response_new', form_id=s.id) }}">+ Add Response</a>
+        <a class="btn secondary" href="{{ url_for('survey_form_edit', form_id=s.id) }}">Edit</a>
+        <form method="post" action="{{ url_for('survey_form_delete', form_id=s.id) }}" onsubmit="return confirm('Delete this survey form? Existing responses will be kept.')">
+          <button class="btn danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

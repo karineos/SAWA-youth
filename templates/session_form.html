@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>{{ 'Edit Session' if session else 'Add Session' }}</h1>
+
+<div class="card">
+  <p><b>Event:</b> {{ event.name }}</p>
+</div>
+
+<form method="post" class="card">
+  <div class="form-grid">
+    <div>
+      <label>Session Name</label>
+      <input name="name" required value="{{ session.name if session else '' }}" placeholder="Example: English Session 1">
+    </div>
+    <div>
+      <label>Session Date</label>
+      <input type="date" name="session_date" value="{{ session.session_date if session else '' }}">
+    </div>
+    <div class="full">
+      <label>Notes</label>
+      <textarea name="notes">{{ session.notes if session else '' }}</textarea>
+    </div>
+  </div>
+  <br>
+  <button class="btn">Save Session</button>
+  <a class="btn secondary" href="{{ url_for('event_sessions', event_id=event.id) }}">Cancel</a>
+</form>
+{% endblock %}

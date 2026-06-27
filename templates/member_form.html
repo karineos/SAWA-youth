@@ -1,4 +1,5 @@
-{% extends 'base.html' %}{% block content %}<h1>{{ 'Edit Member' if member else 'Add Member' }}</h1><form method="post" class="card"><div class="form-grid">
+{% extends 'base.html' %}{% block content %}<h1>{{ 'Edit Member' if member else 'Add Member' }}</h1><form method="post" class="card"><input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+  <div class="form-grid">
 {% for field,label,type in [('full_name_en','Full Name English','text'),('full_name_ar','Full Name Arabic','text'),('phone','Phone','text'),('email','Email','email'),('birth_date','Birth Date','date'),('gender','Gender','text'),('city','City / Area','text'),('current_status','Current Status','text'),('studied_where','Studied Where / University','text'),('field_of_study','Field of Study','text'),('work','Work','text'),('english_level','English Level','text')] %}
 <div><label>{{ label }}</label><input type="{{ type }}" name="{{ field }}" value="{{ member[field] if member else '' }}"></div>{% endfor %}
 <div class="full"><label>Notes</label><textarea name="notes">{{ member.notes if member else '' }}</textarea></div>

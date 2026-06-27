@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Admin Users</h1>
+
+<div class="card">
+  <h2>Add Admin</h2>
+  <form method="post" class="form-grid">
+    <div>
+      <label>Full Name</label>
+      <input name="full_name" placeholder="Example: Karine">
+    </div>
+    <div>
+      <label>Username</label>
+      <input name="username" required placeholder="example: karine">
+    </div>
+    <div>
+      <label>Password</label>
+      <input name="password" type="password" required>
+    </div>
+    <div>
+      <label>Role</label>
+      <input name="role" value="admin">
+    </div>
+    <div class="full">
+      <button class="btn">+ Add Admin</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Current Admins</h2>
+  <table>
+    <tr><th>Name</th><th>Username</th><th>Role</th><th>Created</th><th>Action</th></tr>
+    {% for a in admins %}
+    <tr>
+      <td>{{ a.full_name or '' }}</td>
+      <td>{{ a.username }}</td>
+      <td>{{ a.role }}</td>
+      <td>{{ a.created_at }}</td>
+      <td>
+        <form method="post" action="{{ url_for('admin_delete', admin_id=a.id) }}" onsubmit="return confirm('Delete this admin?')">
+          <button class="btn danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

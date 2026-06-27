@@ -32,3 +32,17 @@ Open: http://127.0.0.1:5000
 - You can add a survey with a Google Sheet / Excel link.
 - Survey names no longer affect member attendance.
 - You can still add manual responses if needed.
+
+
+## Admin Login
+The CRM now has an admin login page.
+
+Default login:
+- Username: `admin`
+- Password: `ChangeMe123!`
+
+After logging in, go to **Admins** and add your real admin users. Then delete/change the default admin.
+
+Important:
+- Do not put your private SQLite database in a public GitHub repo.
+- For real online deployment, use a hosted database and set a strong Flask `secret_key`.

@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="actions" style="justify-content:space-between">
+  <h1>Add Attendee</h1>
+  <a class="btn secondary" href="{{ url_for('member_new') }}?next={{ url_for('event_attendee_add', event_id=event.id) }}">+ Create New Member</a>
+</div>
+
+<div class="card">
+  <p><b>Event:</b> {{ event.name }}</p>
+  <p class="label">Search and select an existing member to avoid duplicates. If the person does not exist, create a new member first.</p>
+</div>
+
+<form method="post" class="card">
+  <div class="form-grid">
+    <div class="full">
+      <label>Search Existing Member</label>
+      <input id="memberSearch" type="text" placeholder="Type name, Arabic name, or phone..." onkeyup="filterMembers()">
+    </div>
+
+    <div class="full">
+      <label>Select Member</label>
+      <select name="member_id" id="memberSelect" size="10" required>
+        {% for m in members %}
+        <option value="{{ m.id }}" data-search="{{ (m.full_name_en ~ ' ' ~ (m.full_name_ar or '') ~ ' ' ~ (m.phone or ''))|lower }}">
+          {{ m.full_name_en }} {% if m.full_name_ar %} / {{ m.full_name_ar }}{% endif %} {% if m.phone %} — {{ m.phone }}{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="full">
+      <label>Session</label>
+      <select name="session_id">
+        <option value="">Full event / no specific session</option>
+        {% for s in sessions %}
+        <option value="{{ s.id }}" {% if request.args.get('session_id')|string == s.id|string %}selected{% endif %}>
+          {{ s.name }} {% if s.session_date %} — {{ s.session_date }}{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <br>
+  <button class="btn">Save Attendance</button>
+  <a class="btn secondary" href="{{ url_for('event_sessions', event_id=event.id) }}">Cancel</a>
+</form>
+
+<script>
+function filterMembers(){
+  const q = document.getElementById('memberSearch').value.toLowerCase();
+  const options = document.getElementById('memberSelect').options;
+  for (let i = 0; i < options.length; i++){
+    const text = options[i].dataset.search || options[i].text.toLowerCase();
+    options[i].style.display = text.includes(q) ? '' : 'none';
+  }
+}
+</script>
+{% endblock %}

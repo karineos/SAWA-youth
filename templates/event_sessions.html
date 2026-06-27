@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="actions" style="justify-content:space-between">
+  <div>
+    <h1>{{ event.name }}</h1>
+    <p class="label">Manage sessions and attendees for this event.</p>
+  </div>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('event_attendee_add', event_id=event.id) }}">+ Add Attendee</a>
+    <a class="btn secondary" href="{{ url_for('session_new', event_id=event.id) }}">+ Add Session</a>
+    <a class="btn secondary" href="{{ url_for('events') }}">Back to Events</a>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Sessions</h2>
+  <table>
+    <tr><th>Session</th><th>Date</th><th>Attendees</th><th>Actions</th></tr>
+    {% for s in sessions %}
+    <tr>
+      <td>{{ s.name }}</td>
+      <td>{{ s.session_date or '' }}</td>
+      <td>{{ s.attendance_count }}</td>
+      <td class="actions">
+        <a class="btn secondary" href="{{ url_for('event_attendee_add', event_id=event.id) }}?session_id={{ s.id }}">+ Attendee</a>
+        <a class="btn secondary" href="{{ url_for('session_edit', session_id=s.id) }}">Edit</a>
+        <form method="post" action="{{ url_for('session_delete', session_id=s.id) }}" onsubmit="return confirm('Delete this session? Attendance for this session will also be removed.')">
+          <button class="btn danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    {% if not sessions %}
+    <tr><td colspan="4"><span class="label">No sessions yet. Add sessions if this event has multiple meetings.</span></td></tr>
+    {% endif %}
+  </table>
+</div>
+
+<div class="card">
+  <div class="actions" style="justify-content:space-between">
+    <h2>Attendees</h2>
+    <form class="search">
+      <input name="q" value="{{ q }}" placeholder="Search attendee, phone, or session...">
+      <button class="btn">Search</button>
+    </form>
+  </div>
+
+  <table>
+    <tr><th>Member</th><th>Phone</th><th>Session</th><th>Date</th><th>Actions</th></tr>
+    {% for a in attendees %}
+    <tr>
+      <td><a href="{{ url_for('member_detail', member_id=a.member_id) }}">{{ a.full_name_en }}</a><br><span class="label">{{ a.full_name_ar or '' }}</span></td>
+      <td>{{ a.phone or '' }}</td>
+      <td>{{ a.session_name or 'Full event' }}</td>
+      <td>{{ a.session_date or '' }}</td>
+      <td>
+        <form method="post" action="{{ url_for('attendance_delete', attendance_id=a.attendance_id) }}" onsubmit="return confirm('Remove this attendance record?')">
+          <button class="btn danger">Remove</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

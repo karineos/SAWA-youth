@@ -7,7 +7,6 @@ import psycopg2.extras
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from pathlib import Path
-import os
 import psycopg2
 import psycopg2.extras
 APP_DIR = Path(__file__).resolve().parent

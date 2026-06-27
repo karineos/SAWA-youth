@@ -5,7 +5,7 @@ from pathlib import Path
 
 APP_DIR = Path(__file__).resolve().parent
 DB_PATH = APP_DIR / "data" / "crm.sqlite"
-
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 app = Flask(__name__)
 app.secret_key = "change-this-secret-key"
 

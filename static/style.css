@@ -16,3 +16,26 @@ table tr:hover td{background:#fffaf4}.btn:hover{filter:brightness(.96);transform
 
 .question-row{display:grid;grid-template-columns:1fr 180px 100px;gap:10px;margin-bottom:10px;align-items:center}
 @media(max-width:900px){.question-row{grid-template-columns:1fr}}
+.logo{
+    display:flex;
+    align-items:center;
+    gap:15px;
+}
+
+.logo-img{
+    width:65px;
+    height:65px;
+    object-fit:contain;
+}
+
+.logo-text h2{
+    margin:0;
+    color:#8b5e3c;
+    font-size:22px;
+    font-weight:800;
+}
+
+.logo-text span{
+    color:#777;
+    font-size:13px;
+}

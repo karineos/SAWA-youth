@@ -1,3 +1,12 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Sawa Youth CRM</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
-<body><nav><div class="logo">Sawa Youth CRM</div><div class="navlinks"><a href="{{ url_for('dashboard') }}">Dashboard</a><a href="{{ url_for('active_members') }}">Active Users</a><a href="{{ url_for('members') }}">Members</a><a href="{{ url_for('events') }}">Events</a><a href="{{ url_for('attendance') }}">Attendance</a><a href="{{ url_for('surveys') }}">Survey Responses</a><a href="{{ url_for('survey_forms') }}">Survey Library</a></div></nav>
+<body><nav><<div class="logo">
+    <img src="{{ url_for('static', filename='images/logo.JPG') }}"
+         alt="Sawa Youth Logo"
+         class="logo-img">
+
+    <div class="logo-text">
+        <h2>Sawa Youth CRM</h2>
+        <span>Community Management System</span>
+    </div>
+</div><div class="navlinks"><a href="{{ url_for('dashboard') }}">Dashboard</a><a href="{{ url_for('active_members') }}">Active Users</a><a href="{{ url_for('members') }}">Members</a><a href="{{ url_for('events') }}">Events</a><a href="{{ url_for('attendance') }}">Attendance</a><a href="{{ url_for('surveys') }}">Survey Responses</a><a href="{{ url_for('survey_forms') }}">Survey Library</a></div></nav>
 <div class="container">{% with messages=get_flashed_messages() %}{% if messages %}{% for message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endif %}{% endwith %}{% block content %}{% endblock %}</div></body></html>

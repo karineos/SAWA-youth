@@ -1,0 +1,4 @@
+data/crm.sqlite
+*.sqlite
+*.db
+.env

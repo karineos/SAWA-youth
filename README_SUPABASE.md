@@ -6,6 +6,12 @@ In Vercel → Project → Settings → Environment Variables:
 
 - `DATABASE_URL` = your Supabase transaction pooler connection string
 - `SECRET_KEY` = a long random secret
+- `PUBLIC_BASE_URL` = your real site URL, e.g. `https://your-project.vercel.app` (or your custom domain)
+
+`PUBLIC_BASE_URL` is used to build the public Sign-Up Form links shown on the Sign-Up Forms page.
+Without it, those links can show `localhost` — Vercel's Python runtime doesn't always report the
+real domain back to Flask, so the app can't reliably detect it on its own. Set this and redeploy;
+update it if you ever move to a custom domain.
 
 Generate secret:
 

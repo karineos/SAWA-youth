@@ -1,7 +1,73 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Sawa Youth CRM</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
-<body><nav><div class="logo">Sawa Youth CRM</div><div class="navlinks"><a href="{{ url_for('dashboard') }}">Dashboard</a><a href="{{ url_for('active_members') }}">Active Users</a><a href="{{ url_for('members') }}">Members</a><a href="{{ url_for('events') }}">Events</a><a href="{{ url_for('attendance') }}">Attendance</a><a href="{{ url_for('surveys') }}">Survey Responses</a><a href="{{ url_for('survey_forms') }}">Survey Library</a>{% if session.get('admin_id') %}
-<a href="{{ url_for('admins') }}">Admins</a>
-<a href="{{ url_for('logout') }}">Logout</a>
-{% endif %}
-</div></nav>
-<div class="container">{% with messages=get_flashed_messages() %}{% if messages %}{% for message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endif %}{% endwith %}{% block content %}{% endblock %}</div></body></html>
+{% import '_icons.html' as icons %}<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sawa Youth CRM</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle-input">
+    <label for="sidebar-toggle" class="sidebar-overlay"></label>
+
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <div class="brand"><span class="brand-mark">SY</span><span class="brand-text">Sawa Youth<small>CRM</small></span></div>
+        <label for="sidebar-toggle" class="sidebar-close">{{ icons.icon('close') }}</label>
+      </div>
+
+      <nav class="sidebar-nav">
+        <p class="nav-heading">Overview</p>
+        <a class="{{ 'active' if request.endpoint == 'dashboard' }}" href="{{ url_for('dashboard') }}">{{ icons.icon('dashboard') }}<span>Dashboard</span></a>
+        <a class="{{ 'active' if request.endpoint == 'calendar_view' }}" href="{{ url_for('calendar_view') }}">{{ icons.icon('calendar') }}<span>Calendar</span></a>
+        <a class="{{ 'active' if request.endpoint == 'active_members' }}" href="{{ url_for('active_members') }}">{{ icons.icon('star') }}<span>Active Users</span></a>
+
+        <p class="nav-heading">People</p>
+        <a class="{{ 'active' if request.endpoint in ['members','member_new','member_detail','member_edit'] }}" href="{{ url_for('members') }}">{{ icons.icon('users') }}<span>Members</span></a>
+
+        <p class="nav-heading">Programs</p>
+        <a class="{{ 'active' if request.endpoint in ['events','event_new','event_edit','event_sessions','event_attendees','session_new','session_edit','session_attendees','event_attendee_add','event_signup_responses'] }}" href="{{ url_for('events') }}">{{ icons.icon('calendar') }}<span>Events</span></a>
+        <a class="{{ 'active' if request.endpoint == 'attendance' }}" href="{{ url_for('attendance') }}">{{ icons.icon('check') }}<span>Attendance</span></a>
+
+        <p class="nav-heading">Registration</p>
+        <a class="{{ 'active' if request.endpoint in ['signup_forms','signup_form_new','signup_form_edit'] }}" href="{{ url_for('signup_forms') }}">{{ icons.icon('link') }}<span>Sign-Up Forms</span></a>
+
+        <p class="nav-heading">Surveys</p>
+        <a class="{{ 'active' if request.endpoint in ['surveys','survey_detail'] }}" href="{{ url_for('surveys') }}">{{ icons.icon('clipboard') }}<span>Survey Responses</span></a>
+        <a class="{{ 'active' if request.endpoint in ['survey_forms','survey_form_new','survey_form_edit','survey_response_new'] }}" href="{{ url_for('survey_forms') }}">{{ icons.icon('book') }}<span>Survey Library</span></a>
+
+        {% if session.get('admin_id') %}
+        <p class="nav-heading">Admin</p>
+        <a class="{{ 'active' if request.endpoint == 'admins' }}" href="{{ url_for('admins') }}">{{ icons.icon('shield') }}<span>Admins</span></a>
+        {% endif %}
+      </nav>
+
+      {% if session.get('admin_id') %}
+      <div class="sidebar-foot">
+        <div class="sidebar-user">
+          <span class="avatar">{{ (session.get('admin_name') or '?')[0]|upper }}</span>
+          <span class="sidebar-user-name">{{ session.get('admin_name') }}</span>
+        </div>
+        <a class="sidebar-logout" href="{{ url_for('logout') }}" title="Logout">{{ icons.icon('logout') }}</a>
+      </div>
+      {% endif %}
+    </aside>
+
+    <div class="main">
+      <div class="topbar">
+        <label for="sidebar-toggle" class="hamburger">{{ icons.icon('menu') }}</label>
+        <span class="topbar-title">Sawa Youth CRM</span>
+      </div>
+      <div class="container">
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}<div class="flash">{{ message }}</div>{% endfor %}
+          {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+  </div>
+</body>
+</html>

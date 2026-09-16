@@ -1,1 +1,57 @@
-{% extends 'base.html' %}{% block content %}<h1>{{ 'Edit Event' if event else 'Add Event' }}</h1><form method="post" class="card"><div class="form-grid"><div class="full"><label>Event Name</label><input name="name" required value="{{ event.name if event else '' }}"></div><div><label>Date</label><input type="date" name="event_date" value="{{ event.event_date if event else '' }}"></div><div><label>Location</label><input name="location" value="{{ event.location if event else '' }}"></div><div><label>Type</label><input name="event_type" value="{{ event.event_type if event else '' }}"></div><div class="full"><label>Notes</label><textarea name="notes">{{ event.notes if event else '' }}</textarea></div></div><br><button class="btn">Save</button> <a class="btn secondary" href="{{ url_for('events') }}">Cancel</a></form>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><h1>{{ 'Edit Event' if event else 'Add Event' }}</h1></div>
+<form method="post">
+  <div class="card">
+    <h2 class="section-title">Event Details</h2>
+    <div class="form-grid">
+      <div class="full"><label>Event Name</label><input name="name" required value="{{ event.name if event else '' }}"></div>
+      <div><label>Date</label><input type="date" name="event_date" value="{{ event.event_date if event else '' }}"></div>
+      <div><label>Location</label><input name="location" value="{{ event.location if event else '' }}"></div>
+      <div><label>Type</label><input name="event_type" value="{{ event.event_type if event else '' }}"></div>
+      <div class="full"><label>Notes</label><textarea name="notes">{{ event.notes if event else '' }}</textarea></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Sign-Up Questions</h2>
+    <p class="label" style="margin-bottom:16px">
+      If you create a public Sign-Up Form for this event, anyone who fills it out will be taken
+      to a second page to answer these questions. Leave this empty to skip the second page.
+    </p>
+    <div id="questions">
+      {% for q in questions %}
+      <div class="question-row">
+        <input name="question_text" value="{{ q.question_text }}" placeholder="Question">
+        <select name="field_type">
+          <option value="text" {% if q.field_type == 'text' %}selected{% endif %}>Short text</option>
+          <option value="textarea" {% if q.field_type == 'textarea' %}selected{% endif %}>Long answer</option>
+          <option value="date" {% if q.field_type == 'date' %}selected{% endif %}>Date</option>
+          <option value="number" {% if q.field_type == 'number' %}selected{% endif %}>Number</option>
+        </select>
+        <button type="button" class="btn danger" onclick="this.parentElement.remove()">Remove</button>
+      </div>
+      {% endfor %}
+    </div>
+    <br>
+    <button type="button" class="btn secondary" onclick="addEventQuestion()">+ Add Question</button>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn">Save</button>
+    <a class="btn secondary" href="{{ url_for('events') }}">Cancel</a>
+  </div>
+</form>
+
+<script>
+function addEventQuestion(){
+  const box = document.getElementById('questions');
+  const row = document.createElement('div');
+  row.className = 'question-row';
+  row.innerHTML = `<input name="question_text" placeholder="Question">
+    <select name="field_type"><option value="text">Short text</option><option value="textarea">Long answer</option><option value="date">Date</option><option value="number">Number</option></select>
+    <button type="button" class="btn danger" onclick="this.parentElement.remove()">Remove</button>`;
+  box.appendChild(row);
+}
+</script>
+{% endblock %}

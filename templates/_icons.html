@@ -1,0 +1,14 @@
+{% macro icon(name) %}{% if name == 'dashboard' %}<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>
+{%- elif name == 'star' %}<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.2 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.2 5.9-.8z"/></svg>
+{%- elif name == 'users' %}<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15.5 14.3c2.7.4 4.5 2.6 4.5 5.7"/></svg>
+{%- elif name == 'calendar' %}<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17"/><path d="M8 3v4M16 3v4"/></svg>
+{%- elif name == 'check' %}<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M8 12.5l2.6 2.6L16.5 9"/></svg>
+{%- elif name == 'clipboard' %}<svg viewBox="0 0 24 24"><rect x="5.5" y="4" width="13" height="17" rx="2"/><rect x="9" y="2.3" width="6" height="3.4" rx="1"/><path d="M8.5 11h7M8.5 15h7M8.5 19h4"/></svg>
+{%- elif name == 'book' %}<svg viewBox="0 0 24 24"><path d="M4 4.8c2.2-1 5-1.1 7 0v14.4c-2-1.1-4.8-1-7 0z"/><path d="M20 4.8c-2.2-1-5-1.1-7 0v14.4c2-1.1 4.8-1 7 0z"/></svg>
+{%- elif name == 'shield' %}<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5.2c0 4.6-3 7.6-7 9.3-4-1.7-7-4.7-7-9.3V6z"/></svg>
+{%- elif name == 'logout' %}<svg viewBox="0 0 24 24"><path d="M9 4H6a2 2 0 00-2 2v12a2 2 0 002 2h3"/><path d="M15 16l4-4-4-4"/><path d="M19 12H9"/></svg>
+{%- elif name == 'menu' %}<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+{%- elif name == 'close' %}<svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+{%- elif name == 'link' %}<svg viewBox="0 0 24 24"><path d="M9.5 14.5l5-5"/><path d="M11 7.5l1-1a3.5 3.5 0 015 5l-1 1"/><path d="M13 16.5l-1 1a3.5 3.5 0 01-5-5l1-1"/></svg>
+{%- elif name == 'copy' %}<svg viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M15.5 8.5V6a2 2 0 00-2-2H5.5a2 2 0 00-2 2v9a2 2 0 002 2h2.5"/></svg>
+{%- endif %}{% endmacro %}

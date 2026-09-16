@@ -1,5 +1,65 @@
-{% extends 'base.html' %}{% block content %}
-<div class="hero"><div><h1>Dashboard</h1><p class="label">Quick overview of members, events, sessions, surveys, and attendance.</p></div><div class="actions"><a class="btn" href="{{ url_for('active_members') }}">View Most Active Users</a><a class="btn secondary" href="{{ url_for('events') }}">View Event Attendees</a></div></div>
-<div class="grid"><a class="card stat-card" href="{{ url_for('members') }}"><div class="stat">{{ stats.members }}</div><div class="label">Members</div></a><a class="card stat-card" href="{{ url_for('events') }}"><div class="stat">{{ stats.events }}</div><div class="label">Events</div></a><a class="card stat-card" href="{{ url_for('events') }}"><div class="stat">{{ stats.sessions }}</div><div class="label">AI Sessions</div></a><a class="card stat-card" href="{{ url_for('attendance') }}"><div class="stat">{{ stats.attendance }}</div><div class="label">Attendance Records</div></a><a class="card stat-card" href="{{ url_for('surveys') }}"><div class="stat">{{ stats.surveys }}</div><div class="label">Survey Responses</div></a></div>
-<div class="card"><div class="actions" style="justify-content:space-between"><h2>Events Overview</h2><a class="btn secondary" href="{{ url_for('events') }}">Manage Events</a></div><table><tr><th>Event</th><th>Unique Attendees</th><th>Total Records</th><th>Actions</th></tr>{% for e in event_counts %}<tr><td>{{ e.name }}</td><td>{{ e.unique_attendees }}</td><td>{{ e.total_records }}</td><td><a class="btn secondary" href="{{ url_for('event_attendees', event_id=e.id) }}">View Attendees</a></td></tr>{% endfor %}</table></div>
-<div class="card"><div class="actions" style="justify-content:space-between"><h2>Most Active Members</h2><a class="btn" href="{{ url_for('active_members') }}">See Full Ranking</a></div><table><tr><th>Name</th><th>Phone</th><th>Events</th><th>Attendances</th><th>Profile</th></tr>{% for m in top_members %}<tr><td>{{ m.full_name_en }}</td><td>{{ m.phone or '' }}</td><td>{{ m.total_events }}</td><td>{{ m.total_attendances }}</td><td><a class="btn secondary" href="{{ url_for('member_detail', member_id=m.id) }}">Open</a></td></tr>{% endfor %}</table></div>{% endblock %}
+{% extends 'base.html' %}
+{% import '_icons.html' as icons %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="label">Quick overview of members, events, sessions, surveys, and attendance.</p>
+  </div>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('active_members') }}">View Most Active Users</a>
+    <a class="btn secondary" href="{{ url_for('events') }}">View Event Attendees</a>
+  </div>
+</div>
+
+<div class="grid">
+  <a class="card stat-card" href="{{ url_for('members') }}"><div class="stat-card-icon">{{ icons.icon('users') }}</div><div class="stat">{{ stats.members }}</div><div class="label">Members</div></a>
+  <a class="card stat-card" href="{{ url_for('events') }}"><div class="stat-card-icon">{{ icons.icon('calendar') }}</div><div class="stat">{{ stats.events }}</div><div class="label">Events</div></a>
+  <a class="card stat-card" href="{{ url_for('events') }}"><div class="stat-card-icon">{{ icons.icon('calendar') }}</div><div class="stat">{{ stats.sessions }}</div><div class="label">AI Sessions</div></a>
+  <a class="card stat-card" href="{{ url_for('attendance') }}"><div class="stat-card-icon">{{ icons.icon('check') }}</div><div class="stat">{{ stats.attendance }}</div><div class="label">Attendance Records</div></a>
+  <a class="card stat-card" href="{{ url_for('surveys') }}"><div class="stat-card-icon">{{ icons.icon('clipboard') }}</div><div class="stat">{{ stats.surveys }}</div><div class="label">Survey Responses</div></a>
+</div>
+
+<div class="card">
+  <div class="page-header" style="margin-bottom:14px">
+    <h2>Events Overview</h2>
+    <a class="btn secondary" href="{{ url_for('events') }}">Manage Events</a>
+  </div>
+  <table>
+    <tr><th>Event</th><th>Unique Attendees</th><th>Total Records</th><th>Actions</th></tr>
+    {% for e in event_counts %}
+    <tr>
+      <td>{{ e.name }}</td>
+      <td>{{ e.unique_attendees }}</td>
+      <td>{{ e.total_records }}</td>
+      <td><a class="btn secondary" href="{{ url_for('event_attendees', event_id=e.id) }}">View Attendees</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4"><div class="empty-state">No events yet.</div></td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card">
+  <div class="page-header" style="margin-bottom:14px">
+    <h2>Most Active Members</h2>
+    <a class="btn" href="{{ url_for('active_members') }}">See Full Ranking</a>
+  </div>
+  <table>
+    <tr><th>Name</th><th>Phone</th><th>Events</th><th>Attendances</th><th>Profile</th></tr>
+    {% for m in top_members %}
+    <tr>
+      <td>
+        <div class="person"><span class="avatar-sm">{{ (m.full_name_en or '?')[0]|upper }}</span>{{ m.full_name_en }}</div>
+      </td>
+      <td>{{ m.phone or '' }}</td>
+      <td>{{ m.total_events }}</td>
+      <td>{{ m.total_attendances }}</td>
+      <td><a class="btn secondary" href="{{ url_for('member_detail', member_id=m.id) }}">Open</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5"><div class="empty-state">No members yet.</div></td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

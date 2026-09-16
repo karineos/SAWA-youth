@@ -1,3 +1,71 @@
-{% extends 'base.html' %}{% block content %}<div class="actions" style="justify-content:space-between"><h1>{{ member.full_name_en }}</h1><a class="btn secondary" href="{{ url_for('member_edit', member_id=member.id) }}">Edit Profile</a></div>
-<div class="card profile-grid"><p><b>Arabic Name:</b> {{ member.full_name_ar or '-' }}</p><p><b>Phone:</b> {{ member.phone or '-' }}</p><p><b>Email:</b> {{ member.email or '-' }}</p><p><b>Birth Date:</b> {{ member.birth_date or '-' }}</p><p><b>Gender:</b> {{ member.gender or '-' }}</p><p><b>City:</b> {{ member.city or '-' }}</p><p><b>Status:</b> {{ member.current_status or '-' }}</p><p><b>Studied Where:</b> {{ member.studied_where or '-' }}</p><p><b>Field of Study:</b> {{ member.field_of_study or '-' }}</p><p><b>Work:</b> {{ member.work or '-' }}</p><p><b>English Level:</b> {{ member.english_level or '-' }}</p><p><b>Notes:</b> {{ member.notes or '-' }}</p></div>
-<div class="card"><h2>Attendance History — {{ attended|length }} record(s)</h2><table><tr><th>Event</th><th>Session</th><th>Date</th><th>Status</th></tr>{% for a in attended %}<tr><td>{{ a.event_name }}</td><td>{{ a.session_name or 'Full event' }}</td><td>{{ a.session_date or a.event_date or '' }}</td><td>{{ a.status }}</td></tr>{% endfor %}</table></div>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div class="person">
+    <span class="avatar-sm" style="width:44px;height:44px;font-size:16px">{{ (member.full_name_en or '?')[0]|upper }}</span>
+    <div><h1 style="margin-bottom:0">{{ member.full_name_en }}</h1>{% if member.full_name_ar %}<span class="label">{{ member.full_name_ar }}</span>{% endif %}</div>
+  </div>
+  <a class="btn secondary" href="{{ url_for('member_edit', member_id=member.id) }}">Edit Profile</a>
+</div>
+
+<div class="card">
+  <h2 class="section-title">Personal Information</h2>
+  <div class="profile-grid">
+    <p><b>Phone:</b> {{ member.phone or '-' }}</p>
+    <p><b>Email:</b> {{ member.email or '-' }}</p>
+    <p><b>Birth Date:</b> {{ member.birth_date or '-' }}</p>
+    <p><b>Gender:</b> {{ member.gender or '-' }}</p>
+    <p><b>City:</b> {{ member.city or '-' }}</p>
+    <p><b>Status:</b> {{ member.current_status or '-' }}</p>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="section-title">Education &amp; Work</h2>
+  <div class="profile-grid">
+    <p><b>Studied Where:</b> {{ member.studied_where or '-' }}</p>
+    <p><b>Field of Study:</b> {{ member.field_of_study or '-' }}</p>
+    <p><b>Work:</b> {{ member.work or '-' }}</p>
+    <p><b>English Level:</b> {{ member.english_level or '-' }}</p>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="section-title">Sawa Journey</h2>
+  <div class="profile-grid">
+    <p><b>Date of Joining:</b> {{ member.date_joined or '-' }}</p>
+    <p class="full"><b>Motivation for Joining Sawa:</b> {{ member.motivation or '-' }}</p>
+    <p class="full"><b>Skills:</b> {{ member.skills or '-' }}</p>
+    <p class="full"><b>Interests:</b> {{ member.interests or '-' }}</p>
+    <p class="full"><b>What Would They Like to Learn More?</b> {{ member.learn_more or '-' }}</p>
+    <p class="full"><b>Notes:</b> {{ member.notes or '-' }}</p>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="section-title">Safety &amp; Emergency Contact</h2>
+  <div class="profile-grid">
+    <p><b>Blood Type:</b> {{ member.blood_type or '-' }}</p>
+    <p><b>Access to Transportation:</b> {{ member.has_transportation or '-' }}</p>
+    <p><b>Emergency Contact:</b> {{ member.emergency_contact_name or '-' }}</p>
+    <p><b>Emergency Contact Phone:</b> {{ member.emergency_contact_phone or '-' }}</p>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Attendance History — {{ attended|length }} record(s)</h2>
+  <table>
+    <tr><th>Event</th><th>Session</th><th>Date</th><th>Status</th></tr>
+    {% for a in attended %}
+    <tr>
+      <td>{{ a.event_name }}</td>
+      <td>{{ a.session_name or 'Full event' }}</td>
+      <td>{{ a.session_date or a.event_date or '' }}</td>
+      <td><span class="pill success">{{ a.status }}</span></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4"><div class="empty-state">No attendance recorded yet.</div></td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

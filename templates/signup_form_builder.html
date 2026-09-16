@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><h1>{{ 'Edit Sign-Up Form' if form else 'Create Sign-Up Form' }}</h1></div>
+
+<form method="post">
+  <div class="card">
+    <h2 class="section-title">Form Details</h2>
+    <div class="form-grid">
+      <div class="full"><label>Form Title</label><input name="title" required placeholder="Example: AI Workshop Sign-Up" value="{{ form.title if form else '' }}"></div>
+      <div class="full">
+        <label>Event</label>
+        <select name="event_id" required>
+          <option value="">Select an event</option>
+          {% for e in events %}
+          <option value="{{ e.id }}" {% if (form and form.event_id == e.id) or (not form and preselect_event|string == e.id|string) %}selected{% endif %}>{{ e.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="full"><label>Description (shown to the public)</label><textarea name="description" placeholder="A short note shown above the form, e.g. what to expect.">{{ form.description if form else '' }}</textarea></div>
+      <div><label><input type="checkbox" name="is_active" style="width:auto" {% if not form or form.is_active %}checked{% endif %}> Form is open for responses</label></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Fields to Ask For</h2>
+    <p class="label" style="margin-bottom:16px">Full Name and Phone are always included so we can identify returning members. Choose any other fields you want to collect for this event.</p>
+    {% for category, fields in field_categories %}
+    <div style="margin-bottom:18px">
+      <h3 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">{{ category }}</h3>
+      <div class="checkbox-list">
+        {% for f in fields %}
+        <label><input type="checkbox" name="fields" value="{{ f.key }}" {% if f.key in selected_fields %}checked{% endif %}> {{ f.label }}</label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if form %}
+  <div class="card">
+    <p class="label">
+      Want to ask extra questions after someone fills this out? Add them under
+      <a href="{{ url_for('event_edit', event_id=form.event_id) }}">this event's Sign-Up Questions</a> —
+      they apply to anyone who registers for the event, no matter which sign-up form they use.
+    </p>
+  </div>
+  {% endif %}
+
+  <div class="form-actions">
+    <button class="btn">Save</button>
+    <a class="btn secondary" href="{{ url_for('signup_forms') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

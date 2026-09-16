@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Calendar</h1>
+    <p class="label">Events, AI workshop sessions, and member birthdays.</p>
+  </div>
+  <a class="btn secondary" href="{{ url_for('calendar_view') }}">Today</a>
+</div>
+
+<div class="card">
+  <div class="calendar-nav">
+    <a class="btn secondary" href="{{ url_for('calendar_view', year=prev_year, month=prev_month) }}">‹ Prev</a>
+    <h2>{{ month_name }} {{ year }}</h2>
+    <a class="btn secondary" href="{{ url_for('calendar_view', year=next_year, month=next_month) }}">Next ›</a>
+  </div>
+
+  <div class="calendar-legend">
+    <span class="legend-item"><span class="calendar-dot event"></span>Event</span>
+    <span class="legend-item"><span class="calendar-dot session"></span>AI Session</span>
+    <span class="legend-item"><span class="calendar-dot birthday"></span>Birthday</span>
+  </div>
+
+  <div class="scroll">
+    <div class="calendar-grid">
+      <div class="calendar-weekday">Sun</div>
+      <div class="calendar-weekday">Mon</div>
+      <div class="calendar-weekday">Tue</div>
+      <div class="calendar-weekday">Wed</div>
+      <div class="calendar-weekday">Thu</div>
+      <div class="calendar-weekday">Fri</div>
+      <div class="calendar-weekday">Sat</div>
+
+      {% for week in weeks %}
+        {% for day in week %}
+        <div class="calendar-day{% if not day.in_month %} other-month{% endif %}{% if day.is_today %} today{% endif %}">
+          <span class="calendar-day-number">{{ day.day }}</span>
+          {% for item in day.entries %}
+          <a class="calendar-item" href="{{ item.url }}" title="{{ item.title }}">
+            <span class="calendar-dot {{ item.type }}"></span><span class="calendar-item-text">{{ item.title }}</span>
+          </a>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

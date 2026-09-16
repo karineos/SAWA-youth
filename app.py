@@ -1,4 +1,9 @@
 import os
+import json
+import secrets
+import calendar as calendar_module
+from datetime import date
+from itertools import groupby
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 import sqlite3
@@ -16,6 +21,75 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-this")
 
 
+def public_signup_url(slug):
+    """Build the shareable sign-up link. Prefers PUBLIC_BASE_URL (set this on
+    Vercel to your real domain) over url_for(_external=True), since Vercel's
+    Python runtime doesn't always report the real host back to Flask —
+    without it, generated links can show localhost even in production."""
+    base_url = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+    if base_url:
+        return f"{base_url}{url_for('public_signup', slug=slug)}"
+    return url_for("public_signup", slug=slug, _external=True)
+
+
+app.jinja_env.globals["public_signup_url"] = public_signup_url
+
+MEMBER_FIELDS = [
+    "full_name_en", "full_name_ar", "phone", "email", "birth_date", "gender", "city",
+    "current_status", "studied_where", "field_of_study", "work", "english_level", "notes",
+    "skills", "interests", "motivation", "date_joined", "blood_type", "learn_more",
+    "has_transportation", "emergency_contact_name", "emergency_contact_phone",
+]
+
+# Fields offered on public sign-up forms. "always" fields are required on every
+# sign-up form (name to identify the person, phone to match against existing members)
+# and can't be unchecked by the admin building the form.
+MEMBER_FIELD_META = [
+    {"key": "full_name_en", "label": "Full Name (English)", "type": "text", "category": "Personal Information", "always": True},
+    {"key": "phone", "label": "Phone", "type": "text", "category": "Personal Information", "always": True},
+    {"key": "full_name_ar", "label": "Full Name (Arabic)", "type": "text", "category": "Personal Information", "always": False},
+    {"key": "email", "label": "Email", "type": "email", "category": "Personal Information", "always": False},
+    {"key": "birth_date", "label": "Birth Date", "type": "date", "category": "Personal Information", "always": False},
+    {"key": "gender", "label": "Gender", "type": "text", "category": "Personal Information", "always": False},
+    {"key": "city", "label": "City / Area", "type": "text", "category": "Personal Information", "always": False},
+    {"key": "current_status", "label": "Current Status", "type": "text", "category": "Personal Information", "always": False},
+    {"key": "studied_where", "label": "Studied Where / University", "type": "text", "category": "Education & Work", "always": False},
+    {"key": "field_of_study", "label": "Field of Study", "type": "text", "category": "Education & Work", "always": False},
+    {"key": "work", "label": "Work", "type": "text", "category": "Education & Work", "always": False},
+    {"key": "english_level", "label": "English Level", "type": "text", "category": "Education & Work", "always": False},
+    {"key": "skills", "label": "Skills", "type": "textarea", "category": "Sawa Journey", "always": False},
+    {"key": "interests", "label": "Interests", "type": "textarea", "category": "Sawa Journey", "always": False},
+    {"key": "motivation", "label": "Motivation for Joining Sawa", "type": "textarea", "category": "Sawa Journey", "always": False},
+    {"key": "learn_more", "label": "What Would You Like to Learn More?", "type": "textarea", "category": "Sawa Journey", "always": False},
+    {"key": "blood_type", "label": "Blood Type", "type": "text", "category": "Safety & Emergency Contact", "always": False},
+    {"key": "has_transportation", "label": "Access to Transportation", "type": "select_yesno", "category": "Safety & Emergency Contact", "always": False},
+    {"key": "emergency_contact_name", "label": "Emergency Contact Name", "type": "text", "category": "Safety & Emergency Contact", "always": False},
+    {"key": "emergency_contact_phone", "label": "Emergency Contact Phone", "type": "text", "category": "Safety & Emergency Contact", "always": False},
+]
+ALWAYS_FIELD_KEYS = [f["key"] for f in MEMBER_FIELD_META if f["always"]]
+OPTIONAL_FIELD_META = [f for f in MEMBER_FIELD_META if not f["always"]]
+OPTIONAL_FIELD_KEYS = [f["key"] for f in OPTIONAL_FIELD_META]
+OPTIONAL_FIELD_CATEGORIES = [(cat, list(items)) for cat, items in groupby(OPTIONAL_FIELD_META, key=lambda f: f["category"])]
+
+
+def fields_by_category(fields):
+    return [(cat, list(items)) for cat, items in groupby(fields, key=lambda f: f["category"])]
+
+
+def generate_unique_slug(conn):
+    while True:
+        slug = secrets.token_urlsafe(6)
+        if not conn.execute("SELECT id FROM signup_forms WHERE slug=?", (slug,)).fetchone():
+            return slug
+
+
+def generate_unique_response_token(conn):
+    while True:
+        token = secrets.token_urlsafe(12)
+        if not conn.execute("SELECT id FROM signup_responses WHERE token=?", (token,)).fetchone():
+            return token
+
+
 class DbWrapper:
     def __init__(self, conn, is_postgres=False):
         self.conn = conn
@@ -25,12 +99,25 @@ class DbWrapper:
         if self.is_postgres:
             sql = sql.replace("?", "%s")
             sql = sql.replace("datetime('now')", "CURRENT_TIMESTAMP")
-            sql = sql.replace("INSERT OR IGNORE", "INSERT")
+            if "INSERT OR IGNORE" in sql:
+                sql = sql.replace("INSERT OR IGNORE", "INSERT") + " ON CONFLICT DO NOTHING"
+            sql = sql.replace(
+                "GROUP_CONCAT(DISTINCT e.name)",
+                "STRING_AGG(DISTINCT e.name, ', ')"
+            )
+            sql = sql.replace(
+                "GROUP_CONCAT(COALESCE(s.name, 'Full event'), ', ')",
+                "STRING_AGG(COALESCE(s.name, 'Full event'), ', ')"
+            )
         return sql
 
     def execute(self, sql, params=()):
         cur = self.conn.cursor()
-        cur.execute(self._sql(sql), params)
+        try:
+            cur.execute(self._sql(sql), params)
+        except Exception:
+            self.conn.rollback()
+            raise
         return cur
 
     def executescript(self, script):
@@ -61,11 +148,41 @@ def get_db():
     conn.execute("PRAGMA foreign_keys = ON")
     return DbWrapper(conn, False)
 
+def init_local_schema():
+    """Bootstrap members/events/sessions/etc. tables for local SQLite dev.
+    On Postgres (DATABASE_URL set), these tables already exist in Supabase
+    and this is a no-op — never runs DDL against the production database."""
+    conn = get_db()
+    if conn.is_postgres:
+        conn.close()
+        return
+    sql_text = (APP_DIR / "schema.sql").read_text(encoding="utf-8")
+    sql_text = sql_text.replace("SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
+    for statement in sql_text.split(";"):
+        statement = statement.strip()
+        if statement:
+            conn.execute(statement)
+
+    existing_columns = {row["name"] for row in conn.execute("PRAGMA table_info(members)").fetchall()}
+    for column in ["skills", "interests", "motivation", "date_joined", "blood_type",
+                   "learn_more", "has_transportation", "emergency_contact_name", "emergency_contact_phone"]:
+        if column not in existing_columns:
+            conn.execute(f"ALTER TABLE members ADD COLUMN {column} TEXT")
+
+    existing_response_columns = {row["name"] for row in conn.execute("PRAGMA table_info(signup_responses)").fetchall()}
+    if "token" not in existing_response_columns:
+        conn.execute("ALTER TABLE signup_responses ADD COLUMN token TEXT")
+
+    conn.commit()
+    conn.close()
+
+
 def init_admins():
     conn = get_db()
-    conn.execute("""
+    id_column = "id SERIAL PRIMARY KEY" if conn.is_postgres else "id INTEGER PRIMARY KEY AUTOINCREMENT"
+    conn.execute(f"""
         CREATE TABLE IF NOT EXISTS admins (
-            id SERIAL PRIMARY KEY,
+            {id_column},
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             full_name TEXT,
@@ -84,13 +201,37 @@ def init_admins():
 
 
 def get_new_id(cur):
-    try:
-        return cur.lastrowid
-    except AttributeError:
+    if cur.description:
         row = cur.fetchone()
         if row:
             return row.get("id") if isinstance(row, dict) else row[0]
-        return None
+    return cur.lastrowid
+
+
+def add_attendance(conn, member_id, event_id, session_id=None, status="Present"):
+    """Record attendance without creating duplicates.
+
+    UNIQUE(member_id, event_id, session_id) only stops duplicates for a specific
+    session — for "full event" attendance session_id is NULL, and SQL treats
+    NULL != NULL, so the constraint never matches and INSERT OR IGNORE silently
+    lets duplicates through. Full-event attendance needs an explicit check instead.
+    """
+    if session_id:
+        conn.execute(
+            "INSERT OR IGNORE INTO attendance(member_id, event_id, session_id, status) VALUES (?, ?, ?, ?)",
+            (member_id, event_id, session_id, status)
+        )
+    else:
+        existing = conn.execute(
+            "SELECT id FROM attendance WHERE member_id=? AND event_id=? AND session_id IS NULL",
+            (member_id, event_id)
+        ).fetchone()
+        if not existing:
+            conn.execute(
+                "INSERT INTO attendance(member_id, event_id, session_id, status) VALUES (?, ?, NULL, ?)",
+                (member_id, event_id, status)
+            )
+
 
 def login_required(view):
     @wraps(view)
@@ -101,9 +242,23 @@ def login_required(view):
     return wrapped_view
 
 
+_schema_ready = False
+
+
+def ensure_schema_ready():
+    """Run schema/admin setup once per running process instead of on every
+    /login request — CREATE TABLE IF NOT EXISTS and reading schema.sql from
+    disk is wasted work once the tables already exist."""
+    global _schema_ready
+    if not _schema_ready:
+        init_local_schema()
+        init_admins()
+        _schema_ready = True
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    init_admins()
+    ensure_schema_ready()
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
@@ -144,7 +299,7 @@ def admins():
                 )
                 conn.commit()
                 flash("Admin added successfully.")
-            except sqlite3.IntegrityError:
+            except (sqlite3.IntegrityError, psycopg2.IntegrityError):
                 flash("This username already exists.")
     rows = conn.execute("SELECT id, username, full_name, role, created_at FROM admins ORDER BY username").fetchall()
     conn.close()
@@ -193,6 +348,73 @@ def dashboard():
     """).fetchall()
     conn.close()
     return render_template("dashboard.html", stats=stats, top_members=top_members, event_counts=event_counts)
+
+
+@app.route("/calendar")
+@login_required
+def calendar_view():
+    today = date.today()
+    try:
+        year = int(request.args.get("year", today.year))
+        month = int(request.args.get("month", today.month))
+    except ValueError:
+        year, month = today.year, today.month
+    if month < 1:
+        month, year = 12, year - 1
+    elif month > 12:
+        month, year = 1, year + 1
+
+    conn = get_db()
+    events = conn.execute("SELECT id, name, event_date FROM events WHERE event_date IS NOT NULL AND event_date <> ''").fetchall()
+    sessions = conn.execute("""
+        SELECT s.id, s.name, s.session_date, e.name AS event_name
+        FROM sessions s JOIN events e ON e.id = s.event_id
+        WHERE s.session_date IS NOT NULL AND s.session_date <> ''
+    """).fetchall()
+    members = conn.execute("SELECT id, full_name_en, birth_date FROM members WHERE birth_date IS NOT NULL AND birth_date <> ''").fetchall()
+    conn.close()
+
+    items_by_day = {}
+
+    def add_item(date_str, item):
+        items_by_day.setdefault(date_str, []).append(item)
+
+    for e in events:
+        add_item(e["event_date"], {"type": "event", "title": e["name"], "url": url_for("event_attendees", event_id=e["id"])})
+    for s in sessions:
+        add_item(s["session_date"], {"type": "session", "title": f'{s["event_name"]} — {s["name"]}', "url": url_for("session_attendees", session_id=s["id"])})
+    for m in members:
+        parts = (m["birth_date"] or "").split("-")
+        if len(parts) == 3:
+            add_item(f"{year:04d}-{parts[1]}-{parts[2]}", {"type": "birthday", "title": f'{m["full_name_en"]}\'s Birthday', "url": url_for("member_detail", member_id=m["id"])})
+
+    month_cal = calendar_module.Calendar(firstweekday=6)
+    all_dates = list(month_cal.itermonthdates(year, month))
+    weeks = []
+    for week_start in range(0, len(all_dates), 7):
+        week = all_dates[week_start:week_start + 7]
+        week_data = []
+        for d in week:
+            date_str = d.isoformat()
+            week_data.append({
+                "day": d.day,
+                "in_month": d.month == month,
+                "is_today": d == today,
+                "entries": items_by_day.get(date_str, []),
+            })
+        weeks.append(week_data)
+
+    prev_month, prev_year = (12, year - 1) if month == 1 else (month - 1, year)
+    next_month, next_year = (1, year + 1) if month == 12 else (month + 1, year)
+
+    return render_template(
+        "calendar.html",
+        weeks=weeks,
+        month_name=calendar_module.month_name[month],
+        year=year,
+        prev_year=prev_year, prev_month=prev_month,
+        next_year=next_year, next_month=next_month,
+    )
 
 
 @app.route("/active-members")
@@ -311,17 +533,17 @@ def member_new():
     sessions = conn.execute("SELECT s.*, e.name event_name FROM sessions s JOIN events e ON e.id=s.event_id ORDER BY s.session_date").fetchall()
     if request.method == "POST":
         data = request.form
-        cur = conn.execute("""
-            INSERT INTO members(full_name_en, full_name_ar, phone, email, birth_date, gender, city, current_status, studied_where, field_of_study, work, english_level, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-        """, tuple(data.get(k, "") for k in ["full_name_en","full_name_ar","phone","email","birth_date","gender","city","current_status","studied_where","field_of_study","work","english_level","notes"]))
+        cur = conn.execute(f"""
+            INSERT INTO members({', '.join(MEMBER_FIELDS)})
+            VALUES ({', '.join(['?'] * len(MEMBER_FIELDS))}) RETURNING id
+        """, tuple(data.get(k, "") for k in MEMBER_FIELDS))
         member_id = get_new_id(cur)
         for event_id in request.form.getlist("events"):
-            conn.execute("INSERT OR IGNORE INTO attendance(member_id,event_id,session_id,status) VALUES (?, ?, NULL, 'Present')", (member_id, event_id))
+            add_attendance(conn, member_id, event_id)
         for session_id in request.form.getlist("sessions"):
             s = conn.execute("SELECT event_id FROM sessions WHERE id=?", (session_id,)).fetchone()
             if s:
-                conn.execute("INSERT OR IGNORE INTO attendance(member_id,event_id,session_id,status) VALUES (?, ?, ?, 'Present')", (member_id, s["event_id"], session_id))
+                add_attendance(conn, member_id, s["event_id"], session_id)
         conn.commit()
         conn.close()
         flash("Member added successfully.")
@@ -363,17 +585,17 @@ def member_edit(member_id):
         return redirect(url_for("members"))
     if request.method == "POST":
         data = request.form
-        conn.execute("""
-            UPDATE members SET full_name_en=?, full_name_ar=?, phone=?, email=?, birth_date=?, gender=?, city=?, current_status=?, studied_where=?, field_of_study=?, work=?, english_level=?, notes=?
+        conn.execute(f"""
+            UPDATE members SET {', '.join(f'{field}=?' for field in MEMBER_FIELDS)}
             WHERE id=?
-        """, tuple(data.get(k, "") for k in ["full_name_en","full_name_ar","phone","email","birth_date","gender","city","current_status","studied_where","field_of_study","work","english_level","notes"]) + (member_id,))
+        """, tuple(data.get(k, "") for k in MEMBER_FIELDS) + (member_id,))
         conn.execute("DELETE FROM attendance WHERE member_id=?", (member_id,))
         for event_id in request.form.getlist("events"):
-            conn.execute("INSERT OR IGNORE INTO attendance(member_id,event_id,session_id,status) VALUES (?, ?, NULL, 'Present')", (member_id, event_id))
+            add_attendance(conn, member_id, event_id)
         for session_id in request.form.getlist("sessions"):
             s = conn.execute("SELECT event_id FROM sessions WHERE id=?", (session_id,)).fetchone()
             if s:
-                conn.execute("INSERT OR IGNORE INTO attendance(member_id,event_id,session_id,status) VALUES (?, ?, ?, 'Present')", (member_id, s["event_id"], session_id))
+                add_attendance(conn, member_id, s["event_id"], session_id)
         conn.commit()
         conn.close()
         flash("Member updated successfully.")
@@ -406,19 +628,38 @@ def events():
     conn.close()
     return render_template("events.html", events=rows, sessions=sessions)
 
+
+def save_event_questions(conn, event_id):
+    conn.execute("DELETE FROM event_questions WHERE event_id=?", (event_id,))
+    question_texts = request.form.getlist("question_text")
+    field_types = request.form.getlist("field_type")
+    sort_order = 0
+    for i, q in enumerate(question_texts):
+        q = q.strip()
+        if not q:
+            continue
+        sort_order += 1
+        conn.execute(
+            "INSERT INTO event_questions(event_id, question_text, field_type, sort_order) VALUES (?, ?, ?, ?)",
+            (event_id, q, field_types[i] if i < len(field_types) else "text", sort_order)
+        )
+
+
 @app.route("/events/new", methods=["GET","POST"])
 @login_required
 def event_new():
     if request.method == "POST":
         data = request.form
         conn = get_db()
-        conn.execute("INSERT INTO events(code,name,event_date,location,event_type,notes) VALUES (?, ?, ?, ?, ?, ?)",
+        cur = conn.execute("INSERT INTO events(code,name,event_date,location,event_type,notes) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
                      (None, data.get("name"), data.get("event_date"), data.get("location"), data.get("event_type"), data.get("notes")))
+        event_id = get_new_id(cur)
+        save_event_questions(conn, event_id)
         conn.commit()
         conn.close()
         flash("Event added successfully.")
         return redirect(url_for("events"))
-    return render_template("event_form.html", event=None)
+    return render_template("event_form.html", event=None, questions=[])
 
 @app.route("/events/<int:event_id>/edit", methods=["GET","POST"])
 @login_required
@@ -429,12 +670,14 @@ def event_edit(event_id):
         data = request.form
         conn.execute("UPDATE events SET name=?, event_date=?, location=?, event_type=?, notes=? WHERE id=?",
                      (data.get("name"), data.get("event_date"), data.get("location"), data.get("event_type"), data.get("notes"), event_id))
+        save_event_questions(conn, event_id)
         conn.commit()
         conn.close()
         flash("Event updated successfully.")
         return redirect(url_for("events"))
+    questions = conn.execute("SELECT * FROM event_questions WHERE event_id=? ORDER BY sort_order", (event_id,)).fetchall()
     conn.close()
-    return render_template("event_form.html", event=event)
+    return render_template("event_form.html", event=event, questions=questions)
 
 @app.route("/events/<int:event_id>/delete", methods=["POST"])
 @login_required
@@ -657,6 +900,238 @@ def survey_response_delete(survey_id):
     return redirect(url_for("surveys"))
 
 
+@app.route("/signup-forms")
+@login_required
+def signup_forms():
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT sf.*, e.name AS event_name, COUNT(sr.id) AS response_count
+        FROM signup_forms sf
+        JOIN events e ON e.id = sf.event_id
+        LEFT JOIN signup_responses sr ON sr.signup_form_id = sf.id
+        GROUP BY sf.id, e.name
+        ORDER BY sf.created_at DESC
+    """).fetchall()
+    conn.close()
+    return render_template("signup_forms.html", forms=rows)
+
+
+@app.route("/signup-forms/new", methods=["GET", "POST"])
+@login_required
+def signup_form_new():
+    conn = get_db()
+    events_list = conn.execute("SELECT * FROM events ORDER BY name").fetchall()
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        event_id = request.form.get("event_id")
+        description = request.form.get("description", "").strip()
+        selected_fields = [f for f in request.form.getlist("fields") if f in OPTIONAL_FIELD_KEYS]
+        is_active = 1 if request.form.get("is_active") else 0
+        if not title or not event_id:
+            flash("Title and event are required.")
+        else:
+            slug = generate_unique_slug(conn)
+            conn.execute(
+                "INSERT INTO signup_forms(event_id, title, description, fields, slug, is_active) VALUES (?, ?, ?, ?, ?, ?)",
+                (event_id, title, description, json.dumps(selected_fields), slug, is_active)
+            )
+            conn.commit()
+            conn.close()
+            flash("Sign-up form created successfully.")
+            return redirect(url_for("signup_forms"))
+    conn.close()
+    preselect_event = request.args.get("event_id", "")
+    return render_template(
+        "signup_form_builder.html", form=None, events=events_list, preselect_event=preselect_event,
+        selected_fields=[], field_categories=OPTIONAL_FIELD_CATEGORIES
+    )
+
+
+@app.route("/signup-forms/<int:form_id>/edit", methods=["GET", "POST"])
+@login_required
+def signup_form_edit(form_id):
+    conn = get_db()
+    signup_form = conn.execute("SELECT * FROM signup_forms WHERE id=?", (form_id,)).fetchone()
+    if not signup_form:
+        conn.close()
+        flash("Sign-up form not found.")
+        return redirect(url_for("signup_forms"))
+    events_list = conn.execute("SELECT * FROM events ORDER BY name").fetchall()
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        event_id = request.form.get("event_id")
+        description = request.form.get("description", "").strip()
+        selected_fields = [f for f in request.form.getlist("fields") if f in OPTIONAL_FIELD_KEYS]
+        is_active = 1 if request.form.get("is_active") else 0
+        if not title or not event_id:
+            flash("Title and event are required.")
+        else:
+            conn.execute(
+                "UPDATE signup_forms SET event_id=?, title=?, description=?, fields=?, is_active=? WHERE id=?",
+                (event_id, title, description, json.dumps(selected_fields), is_active, form_id)
+            )
+            conn.commit()
+            conn.close()
+            flash("Sign-up form updated successfully.")
+            return redirect(url_for("signup_forms"))
+    conn.close()
+    selected_fields = json.loads(signup_form["fields"] or "[]")
+    return render_template(
+        "signup_form_builder.html", form=signup_form, events=events_list, preselect_event="",
+        selected_fields=selected_fields, field_categories=OPTIONAL_FIELD_CATEGORIES
+    )
+
+
+@app.route("/signup-forms/<int:form_id>/delete", methods=["POST"])
+@login_required
+def signup_form_delete(form_id):
+    conn = get_db()
+    conn.execute("DELETE FROM signup_forms WHERE id=?", (form_id,))
+    conn.commit()
+    conn.close()
+    flash("Sign-up form deleted. Existing members and attendance records were kept.")
+    return redirect(url_for("signup_forms"))
+
+
+@app.route("/events/<int:event_id>/signup-responses")
+@login_required
+def event_signup_responses(event_id):
+    conn = get_db()
+    event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
+    if not event:
+        conn.close()
+        flash("Event not found.")
+        return redirect(url_for("events"))
+    questions = conn.execute("SELECT * FROM event_questions WHERE event_id=? ORDER BY sort_order", (event_id,)).fetchall()
+    responses = conn.execute("""
+        SELECT sr.*, m.full_name_en, m.phone, m.city, sf.title AS form_title
+        FROM signup_responses sr
+        JOIN signup_forms sf ON sf.id = sr.signup_form_id
+        JOIN members m ON m.id = sr.member_id
+        WHERE sf.event_id = ?
+        ORDER BY sr.submitted_at DESC
+    """, (event_id,)).fetchall()
+
+    answers_by_response = {}
+    if questions:
+        answer_rows = conn.execute("""
+            SELECT sqa.signup_response_id, eq.question_text, sqa.answer_text
+            FROM signup_question_answers sqa
+            JOIN event_questions eq ON eq.id = sqa.event_question_id
+            JOIN signup_responses sr ON sr.id = sqa.signup_response_id
+            JOIN signup_forms sf ON sf.id = sr.signup_form_id
+            WHERE sf.event_id = ?
+            ORDER BY eq.sort_order
+        """, (event_id,)).fetchall()
+        for row in answer_rows:
+            answers_by_response.setdefault(row["signup_response_id"], []).append(row)
+
+    conn.close()
+    return render_template("event_signup_responses.html", event=event, responses=responses, questions=questions, answers_by_response=answers_by_response)
+
+
+@app.route("/signup/<slug>", methods=["GET", "POST"])
+def public_signup(slug):
+    conn = get_db()
+    signup_form = conn.execute("""
+        SELECT sf.*, e.name AS event_name
+        FROM signup_forms sf JOIN events e ON e.id = sf.event_id
+        WHERE sf.slug=?
+    """, (slug,)).fetchone()
+    if not signup_form or not signup_form["is_active"]:
+        conn.close()
+        return render_template("signup_unavailable.html"), 404
+
+    selected_keys = json.loads(signup_form["fields"] or "[]")
+    active_field_keys = ALWAYS_FIELD_KEYS + [f for f in selected_keys if f in OPTIONAL_FIELD_KEYS]
+    active_fields = [f for f in MEMBER_FIELD_META if f["key"] in active_field_keys]
+
+    if request.method == "POST":
+        if request.form.get("website"):
+            conn.close()
+            return render_template("signup_thankyou.html", form=signup_form)
+
+        submitted = {f["key"]: request.form.get(f["key"], "").strip() for f in active_fields}
+        full_name_en = submitted.get("full_name_en", "")
+        phone = submitted.get("phone", "")
+
+        if not full_name_en or not phone:
+            conn.close()
+            flash("Full name and phone are required.")
+            return render_template("signup_public.html", form=signup_form, field_categories=fields_by_category(active_fields), values=request.form)
+
+        existing = conn.execute("SELECT * FROM members WHERE phone=?", (phone,)).fetchone()
+        if existing:
+            member_id = existing["id"]
+            updates = {k: v for k, v in submitted.items() if v and not (existing[k] or "").strip()}
+            if updates:
+                set_clause = ", ".join(f"{k}=?" for k in updates)
+                conn.execute(f"UPDATE members SET {set_clause} WHERE id=?", tuple(updates.values()) + (member_id,))
+            matched_existing = 1
+        else:
+            insert_fields = dict(submitted)
+            insert_fields["date_joined"] = date.today().isoformat()
+            columns = list(insert_fields.keys())
+            cur = conn.execute(
+                f"INSERT INTO members({', '.join(columns)}) VALUES ({', '.join(['?'] * len(columns))}) RETURNING id",
+                tuple(insert_fields.values())
+            )
+            member_id = get_new_id(cur)
+            matched_existing = 0
+
+        add_attendance(conn, member_id, signup_form["event_id"], status="Registered")
+        token = generate_unique_response_token(conn)
+        conn.execute(
+            "INSERT INTO signup_responses(signup_form_id, member_id, matched_existing, token) VALUES (?, ?, ?, ?)",
+            (signup_form["id"], member_id, matched_existing, token)
+        )
+        conn.commit()
+
+        has_questions = conn.execute("SELECT id FROM event_questions WHERE event_id=?", (signup_form["event_id"],)).fetchone()
+        conn.close()
+        if has_questions:
+            return redirect(url_for("public_signup_questions", slug=slug, token=token))
+        return render_template("signup_thankyou.html", form=signup_form)
+
+    conn.close()
+    return render_template("signup_public.html", form=signup_form, field_categories=fields_by_category(active_fields), values={})
+
+
+@app.route("/signup/<slug>/questions/<token>", methods=["GET", "POST"])
+def public_signup_questions(slug, token):
+    conn = get_db()
+    response_row = conn.execute("""
+        SELECT sr.id, sf.event_id, sf.slug, sf.title, e.name AS event_name
+        FROM signup_responses sr
+        JOIN signup_forms sf ON sf.id = sr.signup_form_id
+        JOIN events e ON e.id = sf.event_id
+        WHERE sr.token=? AND sf.slug=?
+    """, (token, slug)).fetchone()
+    if not response_row:
+        conn.close()
+        return render_template("signup_unavailable.html"), 404
+
+    questions = conn.execute(
+        "SELECT * FROM event_questions WHERE event_id=? ORDER BY sort_order",
+        (response_row["event_id"],)
+    ).fetchall()
+
+    if request.method == "POST":
+        conn.execute("DELETE FROM signup_question_answers WHERE signup_response_id=?", (response_row["id"],))
+        for q in questions:
+            answer = request.form.get(f"question_{q['id']}", "").strip()
+            if answer:
+                conn.execute(
+                    "INSERT INTO signup_question_answers(signup_response_id, event_question_id, answer_text) VALUES (?, ?, ?)",
+                    (response_row["id"], q["id"], answer)
+                )
+        conn.commit()
+        conn.close()
+        return render_template("signup_thankyou.html", form=response_row)
+
+    conn.close()
+    return render_template("signup_questions.html", form=response_row, questions=questions)
+
 
 @app.route("/events/<int:event_id>/sessions/new", methods=["GET", "POST"])
 @login_required
@@ -793,10 +1268,7 @@ def event_attendee_add(event_id):
             flash("Please select an existing member or create a new one.")
             return redirect(url_for("event_attendee_add", event_id=event_id))
 
-        conn.execute(
-            "INSERT OR IGNORE INTO attendance(member_id, event_id, session_id, status) VALUES (?, ?, ?, 'Present')",
-            (member_id, event_id, session_id)
-        )
+        add_attendance(conn, member_id, event_id, session_id)
         conn.commit()
         conn.close()
         flash("Attendance saved successfully.")
@@ -823,5 +1295,5 @@ def attendance_delete(attendance_id):
 
 
 if __name__ == "__main__":
-    init_admins()
-    app.run(debug=True)
+    ensure_schema_ready()
+    app.run(debug=True, port=int(os.environ.get("PORT", 5000)))

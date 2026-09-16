@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Sign-Up Forms</h1>
+    <p class="label">Create a public link for people to register for a workshop or event themselves.</p>
+  </div>
+  <a class="btn" href="{{ url_for('signup_form_new') }}">+ Create Sign-Up Form</a>
+</div>
+
+<div class="card scroll">
+  <table class="wide">
+    <tr>
+      <th>Form</th>
+      <th>Event</th>
+      <th>Status</th>
+      <th>Public Link</th>
+      <th>Responses</th>
+      <th>Actions</th>
+    </tr>
+    {% for f in forms %}
+    <tr>
+      <td>
+        <b>{{ f.title }}</b>
+        {% if f.description %}<br><span class="label">{{ f.description }}</span>{% endif %}
+      </td>
+      <td>{{ f.event_name }}</td>
+      <td>{% if f.is_active %}<span class="pill success">Active</span>{% else %}<span class="pill muted">Closed</span>{% endif %}</td>
+      <td>
+        <div class="signup-link">
+          <input type="text" readonly value="{{ public_signup_url(f.slug) }}" onclick="this.select()">
+          <button type="button" class="btn secondary" onclick="navigator.clipboard.writeText(this.previousElementSibling.value); this.textContent='Copied!'">Copy</button>
+        </div>
+      </td>
+      <td>{{ f.response_count }}</td>
+      <td class="actions">
+        <a class="btn secondary" href="{{ url_for('event_signup_responses', event_id=f.event_id) }}">Responses</a>
+        <a class="btn secondary" href="{{ url_for('signup_form_edit', form_id=f.id) }}">Edit</a>
+        <form method="post" action="{{ url_for('signup_form_delete', form_id=f.id) }}" onsubmit="return confirm('Delete this sign-up form? Members and attendance already collected will be kept.')">
+          <button class="btn danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6"><div class="empty-state">No sign-up forms yet — create one to start collecting registrations.</div></td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

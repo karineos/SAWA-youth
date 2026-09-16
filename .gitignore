@@ -2,3 +2,5 @@ data/crm.sqlite
 *.sqlite
 *.db
 .env
+venv/
+__pycache__/

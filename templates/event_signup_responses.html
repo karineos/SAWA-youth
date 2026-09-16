@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ event.name }}</h1>
+    <p class="label">Sign-up responses for this event.</p>
+  </div>
+  <div class="actions">
+    <a class="btn secondary" href="{{ url_for('event_attendees', event_id=event.id) }}">View Event Attendees</a>
+    <a class="btn secondary" href="{{ url_for('event_edit', event_id=event.id) }}">Edit Sign-Up Questions</a>
+    <a class="btn secondary" href="{{ url_for('events') }}">Back to Events</a>
+  </div>
+</div>
+
+<div class="card scroll">
+  <table class="wide">
+    <tr>
+      <th>Submitted</th><th>Via Form</th><th>Name</th><th>Phone</th><th>City</th><th>Type</th><th>Profile</th>
+      {% if questions %}<th>Question Answers</th>{% endif %}
+    </tr>
+    {% for r in responses %}
+    <tr>
+      <td>{{ r.submitted_at }}</td>
+      <td>{{ r.form_title }}</td>
+      <td>{{ r.full_name_en }}</td>
+      <td>{{ r.phone or '' }}</td>
+      <td>{{ r.city or '' }}</td>
+      <td>{% if r.matched_existing %}<span class="pill">Existing Member</span>{% else %}<span class="pill success">New Member</span>{% endif %}</td>
+      <td><a class="btn secondary" href="{{ url_for('member_detail', member_id=r.member_id) }}">Open</a></td>
+      {% if questions %}
+      <td>
+        {% set answers = answers_by_response.get(r.id) %}
+        {% if answers %}
+        <details>
+          <summary>View Answers ({{ answers|length }})</summary>
+          <div class="answer-list">
+            {% for a in answers %}
+            <p><b>{{ a.question_text }}</b><br>{{ a.answer_text }}</p>
+            {% endfor %}
+          </div>
+        </details>
+        {% else %}
+        <span class="label">No answers</span>
+        {% endif %}
+      </td>
+      {% endif %}
+    </tr>
+    {% else %}
+    <tr><td colspan="{{ 8 if questions else 7 }}"><div class="empty-state">No sign-up responses yet. Create a Sign-Up Form for this event and share the public link.</div></td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

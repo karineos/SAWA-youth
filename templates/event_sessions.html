@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="actions" style="justify-content:space-between">
+<div class="page-header">
   <div>
     <h1>{{ event.name }}</h1>
     <p class="label">Manage sessions and attendees for this event.</p>
@@ -31,13 +31,13 @@
     </tr>
     {% endfor %}
     {% if not sessions %}
-    <tr><td colspan="4"><span class="label">No sessions yet. Add sessions if this event has multiple meetings.</span></td></tr>
+    <tr><td colspan="4"><div class="empty-state">No sessions yet. Add sessions if this event has multiple meetings.</div></td></tr>
     {% endif %}
   </table>
 </div>
 
 <div class="card">
-  <div class="actions" style="justify-content:space-between">
+  <div class="page-header" style="margin-bottom:14px">
     <h2>Attendees</h2>
     <form class="search">
       <input name="q" value="{{ q }}" placeholder="Search attendee, phone, or session...">
@@ -49,7 +49,12 @@
     <tr><th>Member</th><th>Phone</th><th>Session</th><th>Date</th><th>Actions</th></tr>
     {% for a in attendees %}
     <tr>
-      <td><a href="{{ url_for('member_detail', member_id=a.member_id) }}">{{ a.full_name_en }}</a><br><span class="label">{{ a.full_name_ar or '' }}</span></td>
+      <td>
+        <a href="{{ url_for('member_detail', member_id=a.member_id) }}" class="person">
+          <span class="avatar-sm">{{ (a.full_name_en or '?')[0]|upper }}</span>
+          <span class="name-cell">{{ a.full_name_en }}{% if a.full_name_ar %}<span class="sub">{{ a.full_name_ar }}</span>{% endif %}</span>
+        </a>
+      </td>
       <td>{{ a.phone or '' }}</td>
       <td>{{ a.session_name or 'Full event' }}</td>
       <td>{{ a.session_date or '' }}</td>
@@ -59,6 +64,8 @@
         </form>
       </td>
     </tr>
+    {% else %}
+    <tr><td colspan="5"><div class="empty-state">{% if q %}No attendees match "{{ q }}".{% else %}No attendees yet.{% endif %}</div></td></tr>
     {% endfor %}
   </table>
 </div>

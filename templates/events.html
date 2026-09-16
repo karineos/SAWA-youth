@@ -1,3 +1,62 @@
-{% extends 'base.html' %}{% block content %}<div class="actions" style="justify-content:space-between"><div><h1>Events</h1><p class="label">Open any event to see who attended. AI Workshop sessions have their own attendee lists.</p></div><a class="btn" href="{{ url_for('event_new') }}">+ Add Event</a></div>
-<div class="card"><h2>4 Main Events</h2><table><tr><th>Event</th><th>Type</th><th>Date</th><th>Location</th><th>Unique Attendees</th><th>Attendance Records</th><th>View</th><th>Actions</th></tr>{% for e in events %}<tr><td>{{ e.name }}</td><td>{{ e.event_type or '' }}</td><td>{{ e.event_date or '' }}</td><td>{{ e.location or '' }}</td><td>{{ e.unique_attendees }}</td><td>{{ e.attendance_records }}</td><td><a class="btn" href="{{ url_for('event_attendees', event_id=e.id) }}">View Attendees</a></td><td class="actions"><a class="btn" href="{{ url_for('event_sessions', event_id=e.id) }}">View Sessions / Attendees</a><a class="btn secondary" href="{{ url_for('session_new', event_id=e.id) }}">+ Session</a><a class="btn secondary" href="{{ url_for('event_attendee_add', event_id=e.id) }}">+ Attendee</a><a class="btn secondary" href="{{ url_for('event_edit', event_id=e.id) }}">Edit</a><form method="post" action="{{ url_for('event_delete', event_id=e.id) }}" onsubmit="return confirm('Delete this event?')"><button class="btn danger">Delete</button></form></td></tr>{% endfor %}</table></div>
-<div class="card"><h2>AI Workshop Sessions</h2><table><tr><th>Parent Event</th><th>Session</th><th>Session Date</th><th>Attendees</th></tr>{% for s in sessions %}<tr><td>{{ s.event_name }}</td><td>{{ s.name }}</td><td>{{ s.session_date }}</td><td><a class="btn secondary" href="{{ url_for('session_attendees', session_id=s.id) }}">View Session Attendees</a></td></tr>{% endfor %}</table></div>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Events</h1>
+    <p class="label">Open any event to see who attended. AI Workshop sessions have their own attendee lists.</p>
+  </div>
+  <a class="btn" href="{{ url_for('event_new') }}">+ Add Event</a>
+</div>
+
+<div class="card scroll">
+  <h2 style="padding:16px 16px 0">All Events</h2>
+  <table class="wide">
+    <tr><th>Event</th><th>Type</th><th>Date</th><th>Location</th><th>Attendees</th><th>Actions</th></tr>
+    {% for e in events %}
+    <tr>
+      <td>{{ e.name }}</td>
+      <td>{% if e.event_type %}<span class="pill">{{ e.event_type }}</span>{% endif %}</td>
+      <td>{{ e.event_date or '' }}</td>
+      <td>{{ e.location or '' }}</td>
+      <td>{{ e.unique_attendees }} unique <span class="label">· {{ e.attendance_records }} records</span></td>
+      <td class="actions">
+        <a class="btn" href="{{ url_for('event_attendees', event_id=e.id) }}">Attendees</a>
+        <a class="btn secondary" href="{{ url_for('event_sessions', event_id=e.id) }}">Sessions</a>
+        <a class="btn secondary" href="{{ url_for('event_signup_responses', event_id=e.id) }}">Sign-Ups</a>
+        <details class="row-menu">
+          <summary class="btn secondary row-menu-trigger" title="More actions">⋯</summary>
+          <div class="row-menu-panel">
+            <a href="{{ url_for('session_new', event_id=e.id) }}">+ Add Session</a>
+            <a href="{{ url_for('event_attendee_add', event_id=e.id) }}">+ Add Attendee</a>
+            <a href="{{ url_for('signup_form_new', event_id=e.id) }}">+ Sign-Up Form</a>
+            <a href="{{ url_for('event_edit', event_id=e.id) }}">Edit Event</a>
+            <form method="post" action="{{ url_for('event_delete', event_id=e.id) }}" onsubmit="return confirm('Delete this event?')">
+              <button type="submit" class="row-menu-danger">Delete Event</button>
+            </form>
+          </div>
+        </details>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6"><div class="empty-state">No events yet — add your first one.</div></td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card scroll">
+  <h2 style="padding:16px 16px 0">AI Workshop Sessions</h2>
+  <table class="wide">
+    <tr><th>Parent Event</th><th>Session</th><th>Session Date</th><th>Attendees</th></tr>
+    {% for s in sessions %}
+    <tr>
+      <td>{{ s.event_name }}</td>
+      <td>{{ s.name }}</td>
+      <td>{{ s.session_date or '' }}</td>
+      <td><a class="btn secondary" href="{{ url_for('session_attendees', session_id=s.id) }}">View Session Attendees</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4"><div class="empty-state">No sessions yet.</div></td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

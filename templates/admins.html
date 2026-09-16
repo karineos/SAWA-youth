@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1>Admin Users</h1>
+<div class="page-header"><h1>Admin Users</h1></div>
 
 <div class="card">
   <h2>Add Admin</h2>
@@ -33,9 +33,14 @@
     <tr><th>Name</th><th>Username</th><th>Role</th><th>Created</th><th>Action</th></tr>
     {% for a in admins %}
     <tr>
-      <td>{{ a.full_name or '' }}</td>
+      <td>
+        <span class="person">
+          <span class="avatar-sm">{{ (a.full_name or a.username or '?')[0]|upper }}</span>
+          {{ a.full_name or '' }}
+        </span>
+      </td>
       <td>{{ a.username }}</td>
-      <td>{{ a.role }}</td>
+      <td><span class="pill">{{ a.role }}</span></td>
       <td>{{ a.created_at }}</td>
       <td>
         <form method="post" action="{{ url_for('admin_delete', admin_id=a.id) }}" onsubmit="return confirm('Delete this admin?')">
@@ -43,6 +48,8 @@
         </form>
       </td>
     </tr>
+    {% else %}
+    <tr><td colspan="5"><div class="empty-state">No admins yet.</div></td></tr>
     {% endfor %}
   </table>
 </div>

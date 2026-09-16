@@ -1,5 +1,38 @@
-{% extends 'base.html' %}{% block content %}<div class="actions" style="justify-content:space-between"><h1>Members</h1><a class="btn" href="{{ url_for('member_new') }}">+ Add Member</a></div>
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <h1>Members</h1>
+  <a class="btn" href="{{ url_for('member_new') }}">+ Add Member</a>
+</div>
+
 <form class="search"><input name="q" placeholder="Search name, phone, city, work, university..." value="{{ q }}"><button class="btn">Search</button></form>
-<div class="card scroll"><table class="wide"><tr><th>Name</th><th>Phone</th><th>Birth Date</th><th>City</th><th>Studied Where</th><th>Work / Field</th><th>Events</th><th>Attendances</th><th>Actions</th></tr>
-{% for m in members %}<tr><td><a href="{{ url_for('member_detail', member_id=m.id) }}">{{ m.full_name_en }}</a><br><span class="label">{{ m.full_name_ar or '' }}</span></td><td>{{ m.phone or '' }}</td><td>{{ m.birth_date or '' }}</td><td>{{ m.city or '' }}</td><td>{{ m.studied_where or '' }}</td><td>{{ m.work or m.field_of_study or '' }}</td><td>{{ m.event_count }}</td><td>{{ m.attendance_count }}</td><td class="actions"><a class="btn secondary" href="{{ url_for('member_edit', member_id=m.id) }}">Edit</a><form method="post" action="{{ url_for('member_delete', member_id=m.id) }}" onsubmit="return confirm('Delete this member?')"><button class="btn danger">Delete</button></form></td></tr>{% endfor %}
-</table></div>{% endblock %}
+
+<div class="card scroll">
+  <table class="wide">
+    <tr><th>Name</th><th>Phone</th><th>Birth Date</th><th>City</th><th>Studied Where</th><th>Work / Field</th><th>Events</th><th>Attendances</th><th>Actions</th></tr>
+    {% for m in members %}
+    <tr>
+      <td>
+        <a href="{{ url_for('member_detail', member_id=m.id) }}" class="person">
+          <span class="avatar-sm">{{ (m.full_name_en or '?')[0]|upper }}</span>
+          <span class="name-cell">{{ m.full_name_en }}{% if m.full_name_ar %}<span class="sub">{{ m.full_name_ar }}</span>{% endif %}</span>
+        </a>
+      </td>
+      <td>{{ m.phone or '' }}</td>
+      <td>{{ m.birth_date or '' }}</td>
+      <td>{{ m.city or '' }}</td>
+      <td>{{ m.studied_where or '' }}</td>
+      <td>{{ m.work or m.field_of_study or '' }}</td>
+      <td>{{ m.event_count }}</td>
+      <td>{{ m.attendance_count }}</td>
+      <td class="actions">
+        <a class="btn secondary" href="{{ url_for('member_edit', member_id=m.id) }}">Edit</a>
+        <form method="post" action="{{ url_for('member_delete', member_id=m.id) }}" onsubmit="return confirm('Delete this member?')"><button class="btn danger">Delete</button></form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9"><div class="empty-state">{% if q %}No members match "{{ q }}".{% else %}No members yet — add your first one.{% endif %}</div></td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

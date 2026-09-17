@@ -58,7 +58,7 @@ MEMBER_FIELD_META = [
     {"key": "email", "label": "Email", "type": "email", "category": "Personal Information", "always": True},
     {"key": "full_name_ar", "label": "Full Name (Arabic)", "type": "text", "category": "Personal Information", "always": False},
     {"key": "birth_date", "label": "Birth Date", "type": "date", "category": "Personal Information", "always": False},
-    {"key": "gender", "label": "Gender", "type": "text", "category": "Personal Information", "always": False},
+    {"key": "gender", "label": "Gender", "type": "select_gender", "category": "Personal Information", "always": False},
     {"key": "city", "label": "City / Area", "type": "text", "category": "Personal Information", "always": False},
     {"key": "current_status", "label": "Current Status", "type": "text", "category": "Personal Information", "always": False},
     {"key": "studied_where", "label": "Studied Where / University", "type": "text", "category": "Education & Work", "always": False},
@@ -69,7 +69,7 @@ MEMBER_FIELD_META = [
     {"key": "interests", "label": "Interests", "type": "textarea", "category": "Sawa Journey", "always": False},
     {"key": "motivation", "label": "Motivation for Joining Sawa", "type": "textarea", "category": "Sawa Journey", "always": False},
     {"key": "learn_more", "label": "What Would You Like to Learn More?", "type": "textarea", "category": "Sawa Journey", "always": False},
-    {"key": "blood_type", "label": "Blood Type", "type": "text", "category": "Safety & Emergency Contact", "always": False},
+    {"key": "blood_type", "label": "Blood Type", "type": "select_bloodtype", "category": "Safety & Emergency Contact", "always": False},
     {"key": "has_transportation", "label": "Access to Transportation", "type": "select_yesno", "category": "Safety & Emergency Contact", "always": False},
     {"key": "emergency_contact_name", "label": "Emergency Contact Name", "type": "text", "category": "Safety & Emergency Contact", "always": False},
     {"key": "emergency_contact_phone", "label": "Emergency Contact Phone", "type": "text", "category": "Safety & Emergency Contact", "always": False},
@@ -78,6 +78,11 @@ ALWAYS_FIELD_KEYS = [f["key"] for f in MEMBER_FIELD_META if f["always"]]
 OPTIONAL_FIELD_META = [f for f in MEMBER_FIELD_META if not f["always"]]
 OPTIONAL_FIELD_KEYS = [f["key"] for f in OPTIONAL_FIELD_META]
 OPTIONAL_FIELD_CATEGORIES = [(cat, list(items)) for cat, items in groupby(OPTIONAL_FIELD_META, key=lambda f: f["category"])]
+
+GENDER_OPTIONS = ["Male", "Female"]
+BLOOD_TYPE_OPTIONS = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"]
+app.jinja_env.globals["GENDER_OPTIONS"] = GENDER_OPTIONS
+app.jinja_env.globals["BLOOD_TYPE_OPTIONS"] = BLOOD_TYPE_OPTIONS
 
 
 def fields_by_category(fields):

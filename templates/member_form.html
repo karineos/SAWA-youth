@@ -13,7 +13,15 @@
       <div><label>Phone</label><input name="phone" value="{{ member.phone if member else '' }}"></div>
       <div><label>Email</label><input type="email" name="email" value="{{ member.email if member else '' }}"></div>
       <div><label>Birth Date</label><input type="date" name="birth_date" value="{{ member.birth_date if member else '' }}"></div>
-      <div><label>Gender</label><input name="gender" value="{{ member.gender if member else '' }}"></div>
+      <div>
+        <label>Gender</label>
+        <select name="gender">
+          <option value="" {% if not member or not member.gender %}selected{% endif %}>Not specified</option>
+          {% for g in GENDER_OPTIONS %}
+          <option value="{{ g }}" {% if member and member.gender == g %}selected{% endif %}>{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div><label>City / Area</label><input name="city" value="{{ member.city if member else '' }}"></div>
       <div><label>Current Status</label><input name="current_status" value="{{ member.current_status if member else '' }}"></div>
     </div>
@@ -44,7 +52,15 @@
   <div class="card">
     <h2 class="section-title">Safety &amp; Emergency Contact</h2>
     <div class="form-grid">
-      <div><label>Blood Type</label><input name="blood_type" placeholder="Example: O+" value="{{ member.blood_type if member else '' }}"></div>
+      <div>
+        <label>Blood Type</label>
+        <select name="blood_type">
+          <option value="" {% if not member or not member.blood_type %}selected{% endif %}>Not specified</option>
+          {% for bt in BLOOD_TYPE_OPTIONS %}
+          <option value="{{ bt }}" {% if member and member.blood_type == bt %}selected{% endif %}>{{ bt }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div>
         <label>Access to Transportation</label>
         <select name="has_transportation">

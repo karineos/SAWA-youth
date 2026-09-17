@@ -36,6 +36,26 @@
                 <option value="No" {% if values.get(f.key) == 'No' %}selected{% endif %}>No</option>
               </select>
             </div>
+            {% elif f.type == 'select_gender' %}
+            <div>
+              <label>{{ f.label }}</label>
+              <select name="{{ f.key }}">
+                <option value="">Not specified</option>
+                {% for g in GENDER_OPTIONS %}
+                <option value="{{ g }}" {% if values.get(f.key) == g %}selected{% endif %}>{{ g }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% elif f.type == 'select_bloodtype' %}
+            <div>
+              <label>{{ f.label }}</label>
+              <select name="{{ f.key }}">
+                <option value="">Not specified</option>
+                {% for bt in BLOOD_TYPE_OPTIONS %}
+                <option value="{{ bt }}" {% if values.get(f.key) == bt %}selected{% endif %}>{{ bt }}</option>
+                {% endfor %}
+              </select>
+            </div>
             {% else %}
             <div>
               <label>

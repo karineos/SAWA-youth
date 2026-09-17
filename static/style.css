@@ -90,6 +90,7 @@ h2{font-size:17px}
 .label{color:var(--muted);font-size:13px}
 
 .btn{background:var(--accent);color:#fff;padding:10px 16px;border-radius:10px;border:0;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:13.5px;cursor:pointer;transition:.15s ease}
+.btn:disabled{opacity:.6;cursor:not-allowed}
 .btn:hover{background:var(--accent-dark);transform:translateY(-1px)}
 .btn.secondary{background:var(--soft);color:var(--accent-dark)}
 .btn.secondary:hover{background:#e9d9c2}

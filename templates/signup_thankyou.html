@@ -10,8 +10,14 @@
   <div class="public-shell">
     <div class="public-card" style="text-align:center">
       <div class="public-brand" style="justify-content:center"><span class="brand-mark">SY</span> Sawa Youth</div>
-      <h1>You're signed up!</h1>
-      <p class="label">Thanks for registering for {{ form.event_name }}. We'll be in touch with more details soon.</p>
+      <h1>{% if form.matched_existing %}You're all set!{% else %}You're signed up!{% endif %}</h1>
+      <p class="label">
+        {% if form.matched_existing %}
+          We found your existing membership and signed you up for {{ form.event_name }} automatically. We'll be in touch with more details soon.
+        {% else %}
+          Thanks for registering for {{ form.event_name }}. We'll be in touch with more details soon.
+        {% endif %}
+      </p>
     </div>
   </div>
 </body>

@@ -10,14 +10,24 @@
   <div class="public-shell">
     <div class="public-card">
       <div class="public-brand"><span class="brand-mark">SY</span> Sawa Youth</div>
-      <h1>Almost done!</h1>
-      <p class="label">A few more questions for {{ form.event_name }}.</p>
+      <span class="pill">Step 2 of 2</span>
+      <h1 style="margin-top:10px">
+        {% if form.matched_existing %}Welcome back!{% else %}Almost done!{% endif %}
+      </h1>
+      <p class="label">
+        {% if form.matched_existing %}
+          You're already signed up for {{ form.event_name }} — just a couple more questions.
+        {% else %}
+          You're signed up for {{ form.event_name }}. A few more questions before you're done.
+        {% endif %}
+      </p>
 
       {% with messages = get_flashed_messages() %}
         {% if messages %}{% for message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endif %}
       {% endwith %}
 
       <form method="post">
+        <h3 class="public-section-title">Additional Questions</h3>
         <div class="form-grid">
           {% for q in questions %}
           <div class="{% if q.field_type == 'textarea' %}full{% endif %}">

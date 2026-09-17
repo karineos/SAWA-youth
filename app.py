@@ -1061,6 +1061,23 @@ def event_signup_responses(event_id):
     return render_template("event_signup_responses.html", event=event, responses=responses, questions=questions, answers_by_response=answers_by_response)
 
 
+def finish_signup(conn, signup_form, member_id, matched_existing):
+    """Record attendance + a signup_response, then send them to the event's
+    questions (if any) or straight to the thank-you page."""
+    add_attendance(conn, member_id, signup_form["event_id"], status="Registered")
+    token = generate_unique_response_token(conn)
+    conn.execute(
+        "INSERT INTO signup_responses(signup_form_id, member_id, matched_existing, token) VALUES (?, ?, ?, ?)",
+        (signup_form["id"], member_id, matched_existing, token)
+    )
+    conn.commit()
+    has_questions = conn.execute("SELECT id FROM event_questions WHERE event_id=?", (signup_form["event_id"],)).fetchone()
+    conn.close()
+    if has_questions:
+        return redirect(url_for("public_signup_questions", slug=signup_form["slug"], token=token))
+    return render_template("signup_thankyou.html", form=signup_form, matched_existing=matched_existing)
+
+
 @app.route("/signup/<slug>", methods=["GET", "POST"])
 def public_signup(slug):
     conn = get_db()
@@ -1082,6 +1099,27 @@ def public_signup(slug):
             conn.close()
             return render_template("signup_thankyou.html", form=signup_form)
 
+        stage = request.form.get("stage", "lookup")
+
+        if stage == "lookup":
+            # Step 1: check if they're already a member by phone or email, so
+            # existing members never have to re-enter details we already have.
+            identifier = request.form.get("identifier", "").strip()
+            if not identifier:
+                conn.close()
+                flash("Enter your phone number or email to continue.")
+                return render_template("signup_lookup.html", form=signup_form)
+
+            existing = conn.execute("SELECT * FROM members WHERE phone=? OR email=?", (identifier, identifier)).fetchone()
+            if existing:
+                return finish_signup(conn, signup_form, existing["id"], matched_existing=1)
+
+            conn.close()
+            flash("We couldn't find you in our records — please fill in your details below.")
+            prefill = {"email": identifier} if "@" in identifier else {"phone": identifier}
+            return render_template("signup_public.html", form=signup_form, field_categories=fields_by_category(active_fields), values=prefill)
+
+        # Step 2: not an existing member (or the lookup didn't recognize them) — collect full details.
         submitted = {f["key"]: request.form.get(f["key"], "").strip() for f in active_fields}
         full_name_en = submitted.get("full_name_en", "")
         phone = submitted.get("phone", "")
@@ -1117,29 +1155,17 @@ def public_signup(slug):
             member_id = get_new_id(cur)
             matched_existing = 0
 
-        add_attendance(conn, member_id, signup_form["event_id"], status="Registered")
-        token = generate_unique_response_token(conn)
-        conn.execute(
-            "INSERT INTO signup_responses(signup_form_id, member_id, matched_existing, token) VALUES (?, ?, ?, ?)",
-            (signup_form["id"], member_id, matched_existing, token)
-        )
-        conn.commit()
-
-        has_questions = conn.execute("SELECT id FROM event_questions WHERE event_id=?", (signup_form["event_id"],)).fetchone()
-        conn.close()
-        if has_questions:
-            return redirect(url_for("public_signup_questions", slug=slug, token=token))
-        return render_template("signup_thankyou.html", form=signup_form)
+        return finish_signup(conn, signup_form, member_id, matched_existing)
 
     conn.close()
-    return render_template("signup_public.html", form=signup_form, field_categories=fields_by_category(active_fields), values={})
+    return render_template("signup_lookup.html", form=signup_form)
 
 
 @app.route("/signup/<slug>/questions/<token>", methods=["GET", "POST"])
 def public_signup_questions(slug, token):
     conn = get_db()
     response_row = conn.execute("""
-        SELECT sr.id, sf.event_id, sf.slug, sf.title, e.name AS event_name
+        SELECT sr.id, sr.matched_existing, sf.event_id, sf.slug, sf.title, e.name AS event_name
         FROM signup_responses sr
         JOIN signup_forms sf ON sf.id = sr.signup_form_id
         JOIN events e ON e.id = sf.event_id

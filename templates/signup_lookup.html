@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ form.title }} — Sawa Youth</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="public-body">
+  <div class="public-shell">
+    <div class="public-card">
+      <div class="public-brand"><span class="brand-mark">SY</span> Sawa Youth</div>
+      <h1>{{ form.title }}</h1>
+      <p class="label">{{ form.event_name }}</p>
+      {% if form.description %}<p>{{ form.description }}</p>{% endif %}
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}{% for message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endif %}
+      {% endwith %}
+
+      <form method="post">
+        <input type="hidden" name="stage" value="lookup">
+        <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <label>Phone Number or Email</label>
+        <input type="text" name="identifier" required placeholder="Enter your phone number or email" autofocus>
+        <p class="label" style="margin-top:10px">Already a Sawa Youth member? We'll find your details automatically — no need to fill anything in again.</p>
+        <button class="btn full-btn">Continue</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

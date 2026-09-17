@@ -43,7 +43,7 @@ MEMBER_FIELDS = [
     "full_name_en", "full_name_ar", "phone", "email", "birth_date", "gender", "city",
     "current_status", "studied_where", "field_of_study", "work", "english_level", "notes",
     "skills", "interests", "motivation", "date_joined", "blood_type", "learn_more",
-    "has_transportation", "emergency_contact_name", "emergency_contact_phone",
+    "has_transportation", "emergency_contact_name", "emergency_contact_phone", "member_type",
 ]
 
 # Fields offered on public sign-up forms. "always" fields are shown on every
@@ -178,9 +178,11 @@ def init_local_schema():
 
     existing_columns = {row["name"] for row in conn.execute("PRAGMA table_info(members)").fetchall()}
     for column in ["skills", "interests", "motivation", "date_joined", "blood_type",
-                   "learn_more", "has_transportation", "emergency_contact_name", "emergency_contact_phone"]:
+                   "learn_more", "has_transportation", "emergency_contact_name", "emergency_contact_phone",
+                   "member_type"]:
         if column not in existing_columns:
-            conn.execute(f"ALTER TABLE members ADD COLUMN {column} TEXT")
+            default = " DEFAULT 'member'" if column == "member_type" else ""
+            conn.execute(f"ALTER TABLE members ADD COLUMN {column} TEXT{default}")
 
     existing_response_columns = {row["name"] for row in conn.execute("PRAGMA table_info(signup_responses)").fetchall()}
     if "token" not in existing_response_columns:
@@ -219,6 +221,13 @@ def get_new_id(cur):
         if row:
             return row.get("id") if isinstance(row, dict) else row[0]
     return cur.lastrowid
+
+
+def member_field_value(data, key):
+    value = data.get(key, "").strip()
+    if key == "member_type" and not value:
+        return "member"
+    return value
 
 
 def add_attendance(conn, member_id, event_id, session_id=None, status="Present"):
@@ -347,6 +356,7 @@ def dashboard():
                COUNT(DISTINCT a.event_id) total_events
         FROM members m
         LEFT JOIN attendance a ON a.member_id = m.id
+        WHERE COALESCE(m.member_type, 'member') = 'member'
         GROUP BY m.id
         ORDER BY total_attendances DESC, m.full_name_en
         LIMIT 12
@@ -383,7 +393,10 @@ def calendar_view():
         FROM sessions s JOIN events e ON e.id = s.event_id
         WHERE s.session_date IS NOT NULL AND s.session_date <> ''
     """).fetchall()
-    members = conn.execute("SELECT id, full_name_en, birth_date FROM members WHERE birth_date IS NOT NULL AND birth_date <> ''").fetchall()
+    members = conn.execute("""
+        SELECT id, full_name_en, birth_date FROM members
+        WHERE birth_date IS NOT NULL AND birth_date <> '' AND COALESCE(member_type, 'member') = 'member'
+    """).fetchall()
     conn.close()
 
     items_by_day = {}
@@ -434,10 +447,10 @@ def calendar_view():
 def active_members():
     q = request.args.get("q", "").strip()
     conn = get_db()
-    where = ""
+    where = "WHERE COALESCE(m.member_type, 'member') = 'member'"
     params = []
     if q:
-        where = "WHERE m.full_name_en LIKE ? OR m.phone LIKE ? OR m.city LIKE ? OR m.work LIKE ? OR m.studied_where LIKE ?"
+        where += " AND (m.full_name_en LIKE ? OR m.phone LIKE ? OR m.city LIKE ? OR m.work LIKE ? OR m.studied_where LIKE ?)"
         params = [f"%{q}%"]*5
     rows = conn.execute(f"""
         SELECT m.id, m.full_name_en, m.full_name_ar, m.phone, m.city, m.studied_where, m.work,
@@ -492,12 +505,12 @@ def event_attendees(event_id):
 def session_attendees(session_id):
     q = request.args.get("q", "").strip()
     conn = get_db()
-    session = conn.execute("""
+    session_row = conn.execute("""
         SELECT s.*, e.name event_name, e.id event_id
         FROM sessions s JOIN events e ON e.id=s.event_id
         WHERE s.id=?
     """, (session_id,)).fetchone()
-    if not session:
+    if not session_row:
         conn.close()
         flash("Session not found.")
         return redirect(url_for("events"))
@@ -511,20 +524,21 @@ def session_attendees(session_id):
         ORDER BY m.full_name_en
     """, params).fetchall()
     conn.close()
-    return render_template("session_attendees.html", session=session, attendees=attendees, q=q)
+    return render_template("session_attendees.html", session_row=session_row, attendees=attendees, q=q)
 
 @app.route("/members")
 @login_required
 def members():
     q = request.args.get("q", "").strip()
+    view_type = "guest" if request.args.get("type") == "guest" else "member"
     conn = get_db()
-    where = ""
-    params = []
+    where = "WHERE COALESCE(m.member_type, 'member') = ?"
+    params = [view_type]
     if q:
         like = f"%{q}%"
-        where = """WHERE m.full_name_en LIKE ? OR m.full_name_ar LIKE ? OR m.phone LIKE ? OR m.email LIKE ?
-                   OR m.birth_date LIKE ? OR m.city LIKE ? OR m.studied_where LIKE ? OR m.field_of_study LIKE ? OR m.work LIKE ?"""
-        params = [like]*9
+        where += """ AND (m.full_name_en LIKE ? OR m.full_name_ar LIKE ? OR m.phone LIKE ? OR m.email LIKE ?
+                   OR m.birth_date LIKE ? OR m.city LIKE ? OR m.studied_where LIKE ? OR m.field_of_study LIKE ? OR m.work LIKE ?)"""
+        params += [like]*9
     rows = conn.execute(f"""
         SELECT m.*,
                COUNT(a.id) attendance_count,
@@ -536,7 +550,7 @@ def members():
         ORDER BY m.full_name_en
     """, params).fetchall()
     conn.close()
-    return render_template("members.html", members=rows, q=q)
+    return render_template("members.html", members=rows, q=q, view_type=view_type)
 
 @app.route("/members/new", methods=["GET","POST"])
 @login_required
@@ -553,7 +567,7 @@ def member_new():
         cur = conn.execute(f"""
             INSERT INTO members({', '.join(MEMBER_FIELDS)})
             VALUES ({', '.join(['?'] * len(MEMBER_FIELDS))}) RETURNING id
-        """, tuple(data.get(k, "") for k in MEMBER_FIELDS))
+        """, tuple(member_field_value(data, k) for k in MEMBER_FIELDS))
         member_id = get_new_id(cur)
         for event_id in request.form.getlist("events"):
             add_attendance(conn, member_id, event_id)
@@ -609,7 +623,7 @@ def member_edit(member_id):
         conn.execute(f"""
             UPDATE members SET {', '.join(f'{field}=?' for field in MEMBER_FIELDS)}
             WHERE id=?
-        """, tuple(data.get(k, "") for k in MEMBER_FIELDS) + (member_id,))
+        """, tuple(member_field_value(data, k) for k in MEMBER_FIELDS) + (member_id,))
         conn.execute("DELETE FROM attendance WHERE member_id=?", (member_id,))
         for event_id in request.form.getlist("events"):
             add_attendance(conn, member_id, event_id)
@@ -1151,6 +1165,10 @@ def public_signup(slug):
         else:
             insert_fields = dict(submitted)
             insert_fields["date_joined"] = date.today().isoformat()
+            # Brand-new sign-ups are guests, not full members — someone who
+            # shows up to one event and never comes back shouldn't clutter
+            # the curated Members list. An admin can promote them later.
+            insert_fields["member_type"] = "guest"
             columns = list(insert_fields.keys())
             cur = conn.execute(
                 f"INSERT INTO members({', '.join(columns)}) VALUES ({', '.join(['?'] * len(columns))}) RETURNING id",
@@ -1228,7 +1246,7 @@ def session_new(event_id):
             return redirect(url_for("event_sessions", event_id=event_id))
 
     conn.close()
-    return render_template("session_form.html", event=event, session=None)
+    return render_template("session_form.html", event=event, session_row=None)
 
 @app.route("/events/<int:event_id>/sessions")
 @login_required
@@ -1292,7 +1310,7 @@ def session_edit(session_id):
         return redirect(url_for("event_sessions", event_id=session_row["event_id"]))
 
     conn.close()
-    return render_template("session_form.html", event=event, session=session_row)
+    return render_template("session_form.html", event=event, session_row=session_row)
 
 @app.route("/sessions/<int:session_id>/delete", methods=["POST"])
 @login_required
@@ -1344,6 +1362,51 @@ def event_attendee_add(event_id):
 
     conn.close()
     return render_template("add_attendee.html", event=event, sessions=sessions, members=members)
+
+@app.route("/events/<int:event_id>/take-attendance", methods=["GET", "POST"], defaults={"session_id": None})
+@app.route("/sessions/<int:session_id>/take-attendance", methods=["GET", "POST"], defaults={"event_id": None})
+@login_required
+def take_attendance(event_id, session_id):
+    conn = get_db()
+    session_row = None
+    if session_id:
+        session_row = conn.execute("SELECT * FROM sessions WHERE id=?", (session_id,)).fetchone()
+        if not session_row:
+            conn.close()
+            flash("Session not found.")
+            return redirect(url_for("events"))
+        event_id = session_row["event_id"]
+    event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
+    if not event:
+        conn.close()
+        flash("Event not found.")
+        return redirect(url_for("events"))
+
+    if request.method == "POST":
+        checked_ids = set(request.form.getlist("member_ids"))
+        if session_id:
+            conn.execute("DELETE FROM attendance WHERE session_id=?", (session_id,))
+        else:
+            conn.execute("DELETE FROM attendance WHERE event_id=? AND session_id IS NULL", (event_id,))
+        for member_id in checked_ids:
+            add_attendance(conn, member_id, event_id, session_id, status="Present")
+        conn.commit()
+        conn.close()
+        flash("Attendance saved successfully.")
+        if session_id:
+            return redirect(url_for("event_sessions", event_id=event_id))
+        return redirect(url_for("event_attendees", event_id=event_id))
+
+    members = conn.execute("SELECT id, full_name_en, full_name_ar, phone FROM members ORDER BY full_name_en").fetchall()
+    if session_id:
+        present_ids = {str(r["member_id"]) for r in conn.execute("SELECT member_id FROM attendance WHERE session_id=?", (session_id,)).fetchall()}
+    else:
+        present_ids = {str(r["member_id"]) for r in conn.execute("SELECT member_id FROM attendance WHERE event_id=? AND session_id IS NULL", (event_id,)).fetchall()}
+    conn.close()
+    return render_template(
+        "take_attendance.html", event=event, session_row=session_row, members=members, present_ids=present_ids
+    )
+
 
 @app.route("/attendance/<int:attendance_id>/delete", methods=["POST"])
 @login_required

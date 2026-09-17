@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS members (
     has_transportation TEXT,
     emergency_contact_name TEXT,
     emergency_contact_phone TEXT,
+    member_type TEXT DEFAULT 'member',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

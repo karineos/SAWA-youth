@@ -6,7 +6,7 @@
     <p class="label">Manage sessions and attendees for this event.</p>
   </div>
   <div class="actions">
-    <a class="btn" href="{{ url_for('event_attendee_add', event_id=event.id) }}">+ Add Attendee</a>
+    <a class="btn" href="{{ url_for('take_attendance', event_id=event.id) }}">Take Attendance (Full Event)</a>
     <a class="btn secondary" href="{{ url_for('session_new', event_id=event.id) }}">+ Add Session</a>
     <a class="btn secondary" href="{{ url_for('events') }}">Back to Events</a>
   </div>
@@ -22,7 +22,7 @@
       <td>{{ s.session_date or '' }}</td>
       <td>{{ s.attendance_count }}</td>
       <td class="actions">
-        <a class="btn secondary" href="{{ url_for('event_attendee_add', event_id=event.id) }}?session_id={{ s.id }}">+ Attendee</a>
+        <a class="btn" href="{{ url_for('take_attendance', session_id=s.id) }}">Take Attendance</a>
         <a class="btn secondary" href="{{ url_for('session_edit', session_id=s.id) }}">Edit</a>
         <form method="post" action="{{ url_for('session_delete', session_id=s.id) }}" onsubmit="return confirm('Delete this session? Attendance for this session will also be removed.')">
           <button class="btn danger">Delete</button>

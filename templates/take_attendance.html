@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ event.name }}{% if session_row %} — {{ session_row.name }}{% endif %}</h1>
+    <p class="label">
+      {% if session_row %}Taking attendance for this session.{% else %}Taking attendance for the full event.{% endif %}
+    </p>
+  </div>
+  <div class="actions">
+    {% if session_row %}
+    <a class="btn secondary" href="{{ url_for('event_sessions', event_id=event.id) }}">Back to Sessions</a>
+    {% else %}
+    <a class="btn secondary" href="{{ url_for('event_attendees', event_id=event.id) }}">Back to Event</a>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post">
+  <div class="card">
+    <div class="attendance-toolbar">
+      <input type="text" id="attendanceSearch" placeholder="Type a name or phone to filter..." onkeyup="filterAttendanceList()">
+      <div class="actions">
+        <button type="button" class="btn secondary" onclick="setAllVisible(true)">Mark All Visible</button>
+        <button type="button" class="btn secondary" onclick="setAllVisible(false)">Clear All Visible</button>
+      </div>
+    </div>
+    <p class="label" id="attendanceCount" style="margin-bottom:14px"></p>
+
+    <div class="attendance-list" id="attendanceList">
+      {% for m in members %}
+      <label class="attendance-row" data-search="{{ (m.full_name_en ~ ' ' ~ (m.full_name_ar or '') ~ ' ' ~ (m.phone or ''))|lower }}">
+        <input type="checkbox" name="member_ids" value="{{ m.id }}" onchange="updateAttendanceCount()" {% if m.id|string in present_ids %}checked{% endif %}>
+        <span class="avatar-sm">{{ (m.full_name_en or '?')[0]|upper }}</span>
+        <span class="attendance-row-name">
+          {{ m.full_name_en }}
+          {% if m.full_name_ar %}<span class="sub">{{ m.full_name_ar }}</span>{% endif %}
+        </span>
+        <span class="label">{{ m.phone or '' }}</span>
+      </label>
+      {% else %}
+      <div class="empty-state">No members yet. <a href="{{ url_for('member_new') }}">Add one</a> first.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn">Save Attendance</button>
+  </div>
+</form>
+
+<script>
+function filterAttendanceList(){
+  const q = document.getElementById('attendanceSearch').value.toLowerCase();
+  document.querySelectorAll('#attendanceList .attendance-row').forEach(function(row){
+    row.hidden = q && !row.dataset.search.includes(q);
+  });
+}
+function setAllVisible(checked){
+  document.querySelectorAll('#attendanceList .attendance-row').forEach(function(row){
+    if (!row.hidden) row.querySelector('input[type=checkbox]').checked = checked;
+  });
+  updateAttendanceCount();
+}
+function updateAttendanceCount(){
+  const total = document.querySelectorAll('#attendanceList input[type=checkbox]').length;
+  const checked = document.querySelectorAll('#attendanceList input[type=checkbox]:checked').length;
+  document.getElementById('attendanceCount').textContent = checked + ' of ' + total + ' marked present';
+}
+updateAttendanceCount();
+</script>
+{% endblock %}

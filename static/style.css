@@ -141,6 +141,18 @@ label{font-weight:700;font-size:13px;display:block;margin-bottom:6px}
 .checkbox-list{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:280px;overflow:auto;padding:10px;border:1px solid var(--line);border-radius:12px;background:#fff}
 .checkbox-list label{display:flex;gap:8px;font-weight:500;font-size:13.5px;margin:0}
 .checkbox-list input{width:auto;margin-top:3px}
+
+.attendance-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.attendance-toolbar input{max-width:320px}
+.attendance-list{display:flex;flex-direction:column;max-height:520px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+.attendance-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.attendance-row[hidden]{display:none}
+.attendance-row:last-child{border-bottom:0}
+.attendance-row:hover{background:#fbf8f4}
+.attendance-row input[type=checkbox]{width:18px;height:18px;flex:0 0 auto;accent-color:var(--accent)}
+.attendance-row-name{flex:1;font-weight:700;font-size:13.5px}
+.attendance-row-name .sub{display:block;font-weight:500;color:var(--muted);font-size:12px}
+@media(max-width:900px){.attendance-toolbar input{max-width:none;width:100%}}
 .flash{padding:12px 14px;background:var(--soft);border:1px solid #ddc4a7;border-radius:12px;margin-bottom:16px;font-weight:600;color:var(--accent-dark)}
 .profile-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 24px}
 .profile-grid p{margin:0;padding:10px 0;border-bottom:1px solid var(--line)}

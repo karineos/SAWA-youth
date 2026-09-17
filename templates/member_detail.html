@@ -3,7 +3,10 @@
 <div class="page-header">
   <div class="person">
     <span class="avatar-sm" style="width:44px;height:44px;font-size:16px">{{ (member.full_name_en or '?')[0]|upper }}</span>
-    <div><h1 style="margin-bottom:0">{{ member.full_name_en }}</h1>{% if member.full_name_ar %}<span class="label">{{ member.full_name_ar }}</span>{% endif %}</div>
+    <div>
+      <h1 style="margin-bottom:0">{{ member.full_name_en }} {% if member.member_type == 'guest' %}<span class="pill muted">Guest</span>{% endif %}</h1>
+      {% if member.full_name_ar %}<span class="label">{{ member.full_name_ar }}</span>{% endif %}
+    </div>
   </div>
   <a class="btn secondary" href="{{ url_for('member_edit', member_id=member.id) }}">Edit Profile</a>
 </div>

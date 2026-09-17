@@ -2,10 +2,10 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>{{ session.event_name }} — {{ session.name }}</h1>
-    <p class="label">{{ session.session_date }} · {{ attendees|length }} attendees</p>
+    <h1>{{ session_row.event_name }} — {{ session_row.name }}</h1>
+    <p class="label">{{ session_row.session_date }} · {{ attendees|length }} attendees</p>
   </div>
-  <a class="btn secondary" href="{{ url_for('event_attendees', event_id=session.event_id) }}">Back to Event</a>
+  <a class="btn secondary" href="{{ url_for('event_attendees', event_id=session_row.event_id) }}">Back to Event</a>
 </div>
 
 <form class="search"><input name="q" placeholder="Search session attendees..." value="{{ q }}"><button class="btn">Search</button></form>

@@ -7,7 +7,8 @@
   </div>
   <div class="actions">
     <a class="btn secondary" href="{{ url_for('events') }}">Back to Events</a>
-    <a class="btn" href="{{ url_for('attendance', q=event.name) }}">View Raw Attendance</a>
+    <a class="btn secondary" href="{{ url_for('attendance', q=event.name) }}">View Raw Attendance</a>
+    <a class="btn" href="{{ url_for('take_attendance', event_id=event.id) }}">Take Attendance</a>
   </div>
 </div>
 

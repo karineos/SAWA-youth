@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-header"><h1>{{ 'Edit Session' if session else 'Add Session' }}</h1></div>
+<div class="page-header"><h1>{{ 'Edit Session' if session_row else 'Add Session' }}</h1></div>
 
 <div class="card">
   <p><b>Event:</b> {{ event.name }}</p>
@@ -10,15 +10,15 @@
   <div class="form-grid">
     <div>
       <label>Session Name</label>
-      <input name="name" required value="{{ session.name if session else '' }}" placeholder="Example: English Session 1">
+      <input name="name" required value="{{ session_row.name if session_row else '' }}" placeholder="Example: English Session 1">
     </div>
     <div>
       <label>Session Date</label>
-      <input type="date" name="session_date" value="{{ session.session_date if session else '' }}">
+      <input type="date" name="session_date" value="{{ session_row.session_date if session_row else '' }}">
     </div>
     <div class="full">
       <label>Notes</label>
-      <textarea name="notes">{{ session.notes if session else '' }}</textarea>
+      <textarea name="notes">{{ session_row.notes if session_row else '' }}</textarea>
     </div>
   </div>
   <br>

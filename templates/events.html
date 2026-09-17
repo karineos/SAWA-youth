@@ -27,7 +27,7 @@
           <summary class="btn secondary row-menu-trigger" title="More actions">⋯</summary>
           <div class="row-menu-panel">
             <a href="{{ url_for('session_new', event_id=e.id) }}">+ Add Session</a>
-            <a href="{{ url_for('event_attendee_add', event_id=e.id) }}">+ Add Attendee</a>
+            <a href="{{ url_for('take_attendance', event_id=e.id) }}">Take Attendance</a>
             <a href="{{ url_for('signup_form_new', event_id=e.id) }}">+ Sign-Up Form</a>
             <a href="{{ url_for('event_edit', event_id=e.id) }}">Edit Event</a>
             <form method="post" action="{{ url_for('event_delete', event_id=e.id) }}" onsubmit="return confirm('Delete this event?')">

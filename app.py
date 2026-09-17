@@ -2,6 +2,7 @@ import os
 import json
 import csv
 import io
+import re
 import secrets
 import calendar as calendar_module
 from datetime import date, timedelta
@@ -48,6 +49,27 @@ def whatsapp_share_url(text):
 
 
 app.jinja_env.globals["whatsapp_share_url"] = whatsapp_share_url
+
+
+def whatsapp_chat_url(phone):
+    """Build a WhatsApp click-to-chat link from a member's phone number.
+
+    Numbers in this CRM are entered in local Lebanese format (with or
+    without a leading 0, e.g. "03123456" or "70123456") rather than with
+    a country code, so WhatsApp's international format needs the leading
+    0 stripped and 961 added — unless a country code is already present.
+    """
+    digits = re.sub(r"\D", "", phone or "")
+    if not digits:
+        return None
+    if digits.startswith("00"):
+        digits = digits[2:]
+    if not digits.startswith("961"):
+        digits = "961" + digits.lstrip("0")
+    return f"https://wa.me/{digits}"
+
+
+app.jinja_env.globals["whatsapp_chat_url"] = whatsapp_chat_url
 
 
 def csv_response(filename, header, rows):

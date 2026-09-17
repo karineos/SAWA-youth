@@ -63,6 +63,9 @@
         <form method="post" action="{{ url_for('member_promote', member_id=m.id) }}"><button class="btn">+ Add as Member</button></form>
         {% endif %}
         <a class="btn secondary" href="{{ url_for('member_edit', member_id=m.id) }}">Edit</a>
+        {% if m.phone %}
+        <a class="btn secondary" target="_blank" href="{{ whatsapp_chat_url(m.phone) }}">WhatsApp</a>
+        {% endif %}
         <form method="post" action="{{ url_for('member_delete', member_id=m.id) }}" onsubmit="return confirm('Delete this member?')"><button class="btn danger">Delete</button></form>
       </td>
     </tr>

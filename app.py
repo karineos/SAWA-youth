@@ -19,6 +19,11 @@ DB_PATH = APP_DIR / "data" / "crm.sqlite"
 database_url = os.environ.get("DATABASE_URL")
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-this")
+# Templates use `{{ x.field if x else '' }}` in many places, which only guards
+# against x being missing — when x exists but x.field is NULL in the database,
+# Jinja renders the literal text "None". Finalize runs on every {{ }} output,
+# so this fixes it everywhere at once instead of patching each template line.
+app.jinja_env.finalize = lambda value: "" if value is None else value
 
 
 def public_signup_url(slug):
@@ -418,6 +423,7 @@ def calendar_view():
 
 
 @app.route("/active-members")
+@login_required
 def active_members():
     q = request.args.get("q", "").strip()
     conn = get_db()
@@ -533,6 +539,10 @@ def member_new():
     sessions = conn.execute("SELECT s.*, e.name event_name FROM sessions s JOIN events e ON e.id=s.event_id ORDER BY s.session_date").fetchall()
     if request.method == "POST":
         data = request.form
+        if not data.get("full_name_en", "").strip():
+            conn.close()
+            flash("Full name is required.")
+            return render_template("member_form.html", member=None, events=events, sessions=sessions, selected_events=[], selected_sessions=[])
         cur = conn.execute(f"""
             INSERT INTO members({', '.join(MEMBER_FIELDS)})
             VALUES ({', '.join(['?'] * len(MEMBER_FIELDS))}) RETURNING id
@@ -585,6 +595,10 @@ def member_edit(member_id):
         return redirect(url_for("members"))
     if request.method == "POST":
         data = request.form
+        if not data.get("full_name_en", "").strip():
+            conn.close()
+            flash("Full name is required.")
+            return render_template("member_form.html", member=member, events=events, sessions=sessions, selected_events=selected_events, selected_sessions=selected_sessions)
         conn.execute(f"""
             UPDATE members SET {', '.join(f'{field}=?' for field in MEMBER_FIELDS)}
             WHERE id=?
@@ -650,9 +664,13 @@ def save_event_questions(conn, event_id):
 def event_new():
     if request.method == "POST":
         data = request.form
+        name = data.get("name", "").strip()
+        if not name:
+            flash("Event name is required.")
+            return render_template("event_form.html", event=None, questions=[])
         conn = get_db()
         cur = conn.execute("INSERT INTO events(code,name,event_date,location,event_type,notes) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
-                     (None, data.get("name"), data.get("event_date"), data.get("location"), data.get("event_type"), data.get("notes")))
+                     (None, name, data.get("event_date"), data.get("location"), data.get("event_type"), data.get("notes")))
         event_id = get_new_id(cur)
         save_event_questions(conn, event_id)
         conn.commit()
@@ -666,10 +684,20 @@ def event_new():
 def event_edit(event_id):
     conn = get_db()
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
+    if not event:
+        conn.close()
+        flash("Event not found.")
+        return redirect(url_for("events"))
     if request.method == "POST":
         data = request.form
+        name = data.get("name", "").strip()
+        if not name:
+            flash("Event name is required.")
+            questions = conn.execute("SELECT * FROM event_questions WHERE event_id=? ORDER BY sort_order", (event_id,)).fetchall()
+            conn.close()
+            return render_template("event_form.html", event=event, questions=questions)
         conn.execute("UPDATE events SET name=?, event_date=?, location=?, event_type=?, notes=? WHERE id=?",
-                     (data.get("name"), data.get("event_date"), data.get("location"), data.get("event_type"), data.get("notes"), event_id))
+                     (name, data.get("event_date"), data.get("location"), data.get("event_type"), data.get("notes"), event_id))
         save_event_questions(conn, event_id)
         conn.commit()
         conn.close()

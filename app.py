@@ -338,7 +338,6 @@ def dashboard():
     stats = {
         "members": conn.execute("SELECT COUNT(*) c FROM members").fetchone()["c"],
         "events": conn.execute("SELECT COUNT(*) c FROM events").fetchone()["c"],
-        "sessions": conn.execute("SELECT COUNT(*) c FROM sessions").fetchone()["c"],
         "attendance": conn.execute("SELECT COUNT(*) c FROM attendance").fetchone()["c"],
         "surveys": conn.execute("SELECT COUNT(*) c FROM surveys").fetchone()["c"],
     }

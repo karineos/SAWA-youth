@@ -4,7 +4,7 @@
 <div class="page-header">
   <div>
     <h1>Dashboard</h1>
-    <p class="label">Quick overview of members, events, sessions, surveys, and attendance.</p>
+    <p class="label">Quick overview of members, events, surveys, and attendance.</p>
   </div>
   <div class="actions">
     <a class="btn" href="{{ url_for('active_members') }}">View Most Active Users</a>
@@ -15,7 +15,6 @@
 <div class="grid">
   <a class="card stat-card" href="{{ url_for('members') }}"><div class="stat-card-icon">{{ icons.icon('users') }}</div><div class="stat">{{ stats.members }}</div><div class="label">Members</div></a>
   <a class="card stat-card" href="{{ url_for('events') }}"><div class="stat-card-icon">{{ icons.icon('calendar') }}</div><div class="stat">{{ stats.events }}</div><div class="label">Events</div></a>
-  <a class="card stat-card" href="{{ url_for('events') }}"><div class="stat-card-icon">{{ icons.icon('calendar') }}</div><div class="stat">{{ stats.sessions }}</div><div class="label">AI Sessions</div></a>
   <a class="card stat-card" href="{{ url_for('attendance') }}"><div class="stat-card-icon">{{ icons.icon('check') }}</div><div class="stat">{{ stats.attendance }}</div><div class="label">Attendance Records</div></a>
   <a class="card stat-card" href="{{ url_for('surveys') }}"><div class="stat-card-icon">{{ icons.icon('clipboard') }}</div><div class="stat">{{ stats.surveys }}</div><div class="label">Survey Responses</div></a>
 </div>

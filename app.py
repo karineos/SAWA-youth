@@ -845,7 +845,12 @@ def member_import():
                 skipped += 1
                 continue
             phone = record.get("phone", "")
-            existing = conn.execute("SELECT * FROM members WHERE phone=?", (phone,)).fetchone() if phone else None
+            email = record.get("email", "")
+            existing = None
+            if phone:
+                existing = conn.execute("SELECT * FROM members WHERE phone=?", (phone,)).fetchone()
+            if not existing and email:
+                existing = conn.execute("SELECT * FROM members WHERE email=?", (email,)).fetchone()
             if existing:
                 updates = {k: v for k, v in record.items() if v and not (existing[k] or "").strip()}
                 if updates:

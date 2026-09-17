@@ -86,7 +86,7 @@ h2{font-size:17px}
 .container{max-width:1280px;width:100%;margin:0 auto;padding:28px 32px 60px}
 
 /* ---------- Shared components ---------- */
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow);margin-bottom:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow);margin-bottom:18px;overflow-x:auto}
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
 .stat{font-size:32px;font-weight:900;color:var(--accent);line-height:1.1}
 .label{color:var(--muted);font-size:13px}
@@ -233,7 +233,7 @@ details summary{cursor:pointer;color:var(--accent-dark);font-weight:700;font-siz
   .main{margin-left:0}
   .topbar{display:flex}
   .container{padding:20px 16px 48px}
-  .grid,.form-grid,.checkbox-list,.profile-grid{grid-template-columns:1fr}
+  .grid,.form-grid,.checkbox-list,.profile-grid,.question-row{grid-template-columns:1fr}
   .page-header{display:block}
   .page-header .actions{margin-top:12px}
   .search{display:block;max-width:none}

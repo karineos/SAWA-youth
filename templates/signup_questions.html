@@ -4,12 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ form.title }} — Sawa Youth</title>
+  <link rel="icon" href="{{ url_for('static', filename='logo.jpg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="public-body">
   <div class="public-shell">
     <div class="public-card">
-      <div class="public-brand"><span class="brand-mark">SY</span> Sawa Youth</div>
+      <div class="public-brand"><img class="public-brand-logo" src="{{ url_for('static', filename='logo.jpg') }}" alt="Sawa Youth"></div>
       <span class="pill">Step 2 of 2</span>
       <h1 style="margin-top:10px">
         {% if form.matched_existing %}Welcome back!{% else %}Almost done!{% endif %}

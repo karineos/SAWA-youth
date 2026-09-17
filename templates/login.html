@@ -3,10 +3,12 @@
 <head>
   <meta charset="utf-8">
   <title>Sawa Youth CRM Login</title>
+  <link rel="icon" href="{{ url_for('static', filename='logo.jpg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="login-body">
   <div class="login-card">
+    <img class="login-logo" src="{{ url_for('static', filename='logo.jpg') }}" alt="Sawa Youth">
     <h1>Sawa Youth CRM</h1>
     <p class="label">Admin access only</p>
 

@@ -164,6 +164,9 @@ label{font-weight:700;font-size:13px;display:block;margin-bottom:6px}
 .stat-card-icon{width:34px;height:34px;border-radius:9px;background:var(--soft);display:flex;align-items:center;justify-content:center;margin-bottom:6px}
 .stat-card-icon svg{width:18px;height:18px;stroke:var(--accent-dark);fill:none;stroke-width:1.9}
 
+.icon-title{display:flex;align-items:center;gap:8px}
+.icon-title svg{width:20px;height:20px;flex:0 0 auto;stroke:var(--accent-dark);fill:none;stroke-width:1.9}
+
 .question-row{display:grid;grid-template-columns:1fr 180px 100px;gap:10px;margin-bottom:10px;align-items:center}
 
 /* ---------- Calendar ---------- */

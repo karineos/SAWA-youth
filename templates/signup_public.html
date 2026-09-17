@@ -37,8 +37,11 @@
             </div>
             {% else %}
             <div>
-              <label>{{ f.label }}{% if f.key in ['full_name_en', 'phone'] %} *{% endif %}</label>
-              <input type="{{ f.type }}" name="{{ f.key }}" {% if f.key in ['full_name_en', 'phone'] %}required{% endif %} value="{{ values.get(f.key, '') }}">
+              <label>
+                {{ f.label }}{% if f.key == 'full_name_en' %} *{% endif %}
+                {% if f.key in ['phone', 'email'] %} <span class="label">(phone or email required)</span>{% endif %}
+              </label>
+              <input type="{{ f.type }}" name="{{ f.key }}" {% if f.key == 'full_name_en' %}required{% endif %} value="{{ values.get(f.key, '') }}">
             </div>
             {% endif %}
           {% endfor %}

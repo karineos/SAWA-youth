@@ -46,14 +46,17 @@ MEMBER_FIELDS = [
     "has_transportation", "emergency_contact_name", "emergency_contact_phone",
 ]
 
-# Fields offered on public sign-up forms. "always" fields are required on every
-# sign-up form (name to identify the person, phone to match against existing members)
-# and can't be unchecked by the admin building the form.
+# Fields offered on public sign-up forms. "always" fields are shown on every
+# sign-up form and can't be unchecked by the admin building the form. Phone is
+# the primary way we identify a returning member; since not everyone in Lebanon
+# has an email (and not everyone has a phone either), we always collect both
+# and fall back to matching on email when phone isn't provided — the public
+# form only requires that at least one of the two is filled in.
 MEMBER_FIELD_META = [
     {"key": "full_name_en", "label": "Full Name (English)", "type": "text", "category": "Personal Information", "always": True},
     {"key": "phone", "label": "Phone", "type": "text", "category": "Personal Information", "always": True},
+    {"key": "email", "label": "Email", "type": "email", "category": "Personal Information", "always": True},
     {"key": "full_name_ar", "label": "Full Name (Arabic)", "type": "text", "category": "Personal Information", "always": False},
-    {"key": "email", "label": "Email", "type": "email", "category": "Personal Information", "always": False},
     {"key": "birth_date", "label": "Birth Date", "type": "date", "category": "Personal Information", "always": False},
     {"key": "gender", "label": "Gender", "type": "text", "category": "Personal Information", "always": False},
     {"key": "city", "label": "City / Area", "type": "text", "category": "Personal Information", "always": False},
@@ -1082,13 +1085,20 @@ def public_signup(slug):
         submitted = {f["key"]: request.form.get(f["key"], "").strip() for f in active_fields}
         full_name_en = submitted.get("full_name_en", "")
         phone = submitted.get("phone", "")
+        email = submitted.get("email", "")
 
-        if not full_name_en or not phone:
+        if not full_name_en or not (phone or email):
             conn.close()
-            flash("Full name and phone are required.")
+            flash("Full name and at least one of phone or email are required.")
             return render_template("signup_public.html", form=signup_form, field_categories=fields_by_category(active_fields), values=request.form)
 
-        existing = conn.execute("SELECT * FROM members WHERE phone=?", (phone,)).fetchone()
+        # Phone is the primary way we identify a returning member; not everyone
+        # has an email, and not everyone has a phone, so fall back to whichever
+        # one was actually provided.
+        if phone:
+            existing = conn.execute("SELECT * FROM members WHERE phone=?", (phone,)).fetchone()
+        else:
+            existing = conn.execute("SELECT * FROM members WHERE email=?", (email,)).fetchone()
         if existing:
             member_id = existing["id"]
             updates = {k: v for k, v in submitted.items() if v and not (existing[k] or "").strip()}

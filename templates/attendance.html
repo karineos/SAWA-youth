@@ -6,15 +6,15 @@
 </div>
 <form class="search"><input name="q" placeholder="Search by member, event, session..." value="{{ q }}"><button class="btn">Search</button></form>
 <div class="card scroll">
-  <table class="wide">
+  <table class="wide stack-table">
     <tr><th>Member</th><th>Phone</th><th>Event</th><th>Session</th><th>Date</th></tr>
     {% for r in rows %}
     <tr>
-      <td>{{ r.full_name_en }}</td>
-      <td>{{ r.phone or '' }}</td>
-      <td>{{ r.event_name }}</td>
-      <td>{{ r.session_name or 'Full event' }}</td>
-      <td>{{ r.session_date or r.event_date or '' }}</td>
+      <td data-label="Member">{{ r.full_name_en }}</td>
+      <td data-label="Phone">{{ r.phone or '' }}</td>
+      <td data-label="Event">{{ r.event_name }}</td>
+      <td data-label="Session">{{ r.session_name or 'Full event' }}</td>
+      <td data-label="Date">{{ r.session_date or r.event_date or '' }}</td>
     </tr>
     {% else %}
     <tr><td colspan="5"><div class="empty-state">{% if q %}No records match "{{ q }}".{% else %}No attendance recorded yet.{% endif %}</div></td></tr>

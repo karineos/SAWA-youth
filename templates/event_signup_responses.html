@@ -13,22 +13,22 @@
 </div>
 
 <div class="card scroll">
-  <table class="wide">
+  <table class="wide stack-table">
     <tr>
       <th>Submitted</th><th>Via Form</th><th>Name</th><th>Phone</th><th>City</th><th>Type</th><th>Profile</th>
       {% if questions %}<th>Question Answers</th>{% endif %}
     </tr>
     {% for r in responses %}
     <tr>
-      <td>{{ r.submitted_at }}</td>
-      <td>{{ r.form_title }}</td>
-      <td>{{ r.full_name_en }}</td>
-      <td>{{ r.phone or '' }}</td>
-      <td>{{ r.city or '' }}</td>
-      <td>{% if r.matched_existing %}<span class="pill">Existing Member</span>{% else %}<span class="pill success">New Member</span>{% endif %}</td>
-      <td><a class="btn secondary" href="{{ url_for('member_detail', member_id=r.member_id) }}">Open</a></td>
+      <td data-label="Submitted">{{ r.submitted_at }}</td>
+      <td data-label="Via Form">{{ r.form_title }}</td>
+      <td data-label="Name">{{ r.full_name_en }}</td>
+      <td data-label="Phone">{{ r.phone or '' }}</td>
+      <td data-label="City">{{ r.city or '' }}</td>
+      <td data-label="Type">{% if r.matched_existing %}<span class="pill">Existing Member</span>{% else %}<span class="pill success">New Member</span>{% endif %}</td>
+      <td data-label="Profile"><a class="btn secondary" href="{{ url_for('member_detail', member_id=r.member_id) }}">Open</a></td>
       {% if questions %}
-      <td>
+      <td data-label="Question Answers">
         {% set answers = answers_by_response.get(r.id) %}
         {% if answers %}
         <details>

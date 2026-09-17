@@ -57,14 +57,14 @@
 
 <div class="card">
   <h2>Attendance History — {{ attended|length }} record(s)</h2>
-  <table>
+  <table class="stack-table">
     <tr><th>Event</th><th>Session</th><th>Date</th><th>Status</th></tr>
     {% for a in attended %}
     <tr>
-      <td>{{ a.event_name }}</td>
-      <td>{{ a.session_name or 'Full event' }}</td>
-      <td>{{ a.session_date or a.event_date or '' }}</td>
-      <td><span class="pill success">{{ a.status }}</span></td>
+      <td data-label="Event">{{ a.event_name }}</td>
+      <td data-label="Session">{{ a.session_name or 'Full event' }}</td>
+      <td data-label="Date">{{ a.session_date or a.event_date or '' }}</td>
+      <td data-label="Status"><span class="pill success">{{ a.status }}</span></td>
     </tr>
     {% else %}
     <tr><td colspan="4"><div class="empty-state">No attendance recorded yet.</div></td></tr>

@@ -29,20 +29,20 @@
 
 <div class="card">
   <h2>Current Admins</h2>
-  <table>
+  <table class="stack-table">
     <tr><th>Name</th><th>Username</th><th>Role</th><th>Created</th><th>Action</th></tr>
     {% for a in admins %}
     <tr>
-      <td>
+      <td data-label="Name">
         <span class="person">
           <span class="avatar-sm">{{ (a.full_name or a.username or '?')[0]|upper }}</span>
           {{ a.full_name or '' }}
         </span>
       </td>
-      <td>{{ a.username }}</td>
-      <td><span class="pill">{{ a.role }}</span></td>
-      <td>{{ a.created_at }}</td>
-      <td>
+      <td data-label="Username">{{ a.username }}</td>
+      <td data-label="Role"><span class="pill">{{ a.role }}</span></td>
+      <td data-label="Created">{{ a.created_at }}</td>
+      <td data-label="Action">
         <form method="post" action="{{ url_for('admin_delete', admin_id=a.id) }}" onsubmit="return confirm('Delete this admin?')">
           <button class="btn danger">Delete</button>
         </form>

@@ -10,16 +10,16 @@
 
 <div class="card scroll">
   <h2 style="padding:16px 16px 0">All Events</h2>
-  <table class="wide">
+  <table class="wide stack-table">
     <tr><th>Event</th><th>Type</th><th>Date</th><th>Location</th><th>Attendees</th><th>Actions</th></tr>
     {% for e in events %}
     <tr>
-      <td>{{ e.name }}</td>
-      <td>{% if e.event_type %}<span class="pill">{{ e.event_type }}</span>{% endif %}</td>
-      <td>{{ e.event_date or '' }}</td>
-      <td>{{ e.location or '' }}</td>
-      <td>{{ e.unique_attendees }} unique <span class="label">· {{ e.attendance_records }} records</span></td>
-      <td class="actions">
+      <td data-label="Event">{{ e.name }}</td>
+      <td data-label="Type">{% if e.event_type %}<span class="pill">{{ e.event_type }}</span>{% endif %}</td>
+      <td data-label="Date">{{ e.event_date or '' }}</td>
+      <td data-label="Location">{{ e.location or '' }}</td>
+      <td data-label="Attendees">{{ e.unique_attendees }} unique <span class="label">· {{ e.attendance_records }} records</span></td>
+      <td class="actions" data-label="Actions">
         <a class="btn" href="{{ url_for('event_attendees', event_id=e.id) }}">Attendees</a>
         <a class="btn secondary" href="{{ url_for('event_sessions', event_id=e.id) }}">Sessions</a>
         <a class="btn secondary" href="{{ url_for('event_signup_responses', event_id=e.id) }}">Sign-Ups</a>
@@ -45,14 +45,14 @@
 
 <div class="card scroll">
   <h2 style="padding:16px 16px 0">AI Workshop Sessions</h2>
-  <table class="wide">
+  <table class="wide stack-table">
     <tr><th>Parent Event</th><th>Session</th><th>Session Date</th><th>Attendees</th></tr>
     {% for s in sessions %}
     <tr>
-      <td>{{ s.event_name }}</td>
-      <td>{{ s.name }}</td>
-      <td>{{ s.session_date or '' }}</td>
-      <td><a class="btn secondary" href="{{ url_for('session_attendees', session_id=s.id) }}">View Session Attendees</a></td>
+      <td data-label="Parent Event">{{ s.event_name }}</td>
+      <td data-label="Session">{{ s.name }}</td>
+      <td data-label="Session Date">{{ s.session_date or '' }}</td>
+      <td data-label="Attendees"><a class="btn secondary" href="{{ url_for('session_attendees', session_id=s.id) }}">View Session Attendees</a></td>
     </tr>
     {% else %}
     <tr><td colspan="4"><div class="empty-state">No sessions yet.</div></td></tr>

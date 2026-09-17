@@ -238,4 +238,18 @@ details summary{cursor:pointer;color:var(--accent-dark);font-weight:700;font-siz
   .page-header .actions{margin-top:12px}
   .search{display:block;max-width:none}
   .search button{margin-top:10px}
+
+  /* Stack tables into cards instead of scrolling them sideways.
+     These tables mark up their header as a plain first <tr> (no
+     <thead>), so the header row is hidden by position, not tag. */
+  .stack-table{min-width:0;width:100%}
+  .stack-table,.stack-table tr,.stack-table th,.stack-table td{display:block;width:100%}
+  .stack-table tr:first-child{display:none}
+  .stack-table tr{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;padding:4px 12px;background:#fff}
+  .stack-table tr:last-child{margin-bottom:0}
+  .stack-table td{border:0;border-bottom:1px solid var(--line);padding:9px 0;position:relative;min-height:18px}
+  .stack-table td:last-child{border-bottom:0}
+  .stack-table td:empty{display:none}
+  .stack-table td[data-label]{padding-left:46%}
+  .stack-table td[data-label]::before{content:attr(data-label);position:absolute;left:0;top:9px;width:41%;font-weight:800;color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:.03em;line-height:1.3}
 }

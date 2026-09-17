@@ -25,20 +25,20 @@
     <h2 class="icon-title">{{ icons.icon('star') }} Upcoming Birthdays</h2>
     <span class="label">Next 7 days</span>
   </div>
-  <table>
+  <table class="stack-table">
     <tr><th>Name</th><th>Birthday</th><th>Profile</th></tr>
     {% for b in birthdays %}
     <tr>
-      <td>
+      <td data-label="Name">
         <div class="person"><span class="avatar-sm">{{ (b.full_name_en or '?')[0]|upper }}</span>{{ b.full_name_en }}</div>
       </td>
-      <td>
+      <td data-label="Birthday">
         {% if b.days_away == 0 %}<span class="pill success">Today!</span>
         {% elif b.days_away == 1 %}Tomorrow
         {% else %}In {{ b.days_away }} days{% endif %}
         <span class="label">({{ b.bday_date.strftime('%b %-d') }})</span>
       </td>
-      <td><a class="btn secondary" href="{{ url_for('member_detail', member_id=b.id) }}">Open</a></td>
+      <td data-label="Profile"><a class="btn secondary" href="{{ url_for('member_detail', member_id=b.id) }}">Open</a></td>
     </tr>
     {% endfor %}
   </table>
@@ -50,14 +50,14 @@
     <h2>Events Overview</h2>
     <a class="btn secondary" href="{{ url_for('events') }}">Manage Events</a>
   </div>
-  <table>
+  <table class="stack-table">
     <tr><th>Event</th><th>Unique Attendees</th><th>Total Records</th><th>Actions</th></tr>
     {% for e in event_counts %}
     <tr>
-      <td>{{ e.name }}</td>
-      <td>{{ e.unique_attendees }}</td>
-      <td>{{ e.total_records }}</td>
-      <td><a class="btn secondary" href="{{ url_for('event_attendees', event_id=e.id) }}">View Attendees</a></td>
+      <td data-label="Event">{{ e.name }}</td>
+      <td data-label="Unique Attendees">{{ e.unique_attendees }}</td>
+      <td data-label="Total Records">{{ e.total_records }}</td>
+      <td data-label="Actions"><a class="btn secondary" href="{{ url_for('event_attendees', event_id=e.id) }}">View Attendees</a></td>
     </tr>
     {% else %}
     <tr><td colspan="4"><div class="empty-state">No events yet.</div></td></tr>
@@ -70,17 +70,17 @@
     <h2>Most Active Members</h2>
     <a class="btn" href="{{ url_for('active_members') }}">See Full Ranking</a>
   </div>
-  <table>
+  <table class="stack-table">
     <tr><th>Name</th><th>Phone</th><th>Events</th><th>Attendances</th><th>Profile</th></tr>
     {% for m in top_members %}
     <tr>
-      <td>
+      <td data-label="Name">
         <div class="person"><span class="avatar-sm">{{ (m.full_name_en or '?')[0]|upper }}</span>{{ m.full_name_en }}</div>
       </td>
-      <td>{{ m.phone or '' }}</td>
-      <td>{{ m.total_events }}</td>
-      <td>{{ m.total_attendances }}</td>
-      <td><a class="btn secondary" href="{{ url_for('member_detail', member_id=m.id) }}">Open</a></td>
+      <td data-label="Phone">{{ m.phone or '' }}</td>
+      <td data-label="Events">{{ m.total_events }}</td>
+      <td data-label="Attendances">{{ m.total_attendances }}</td>
+      <td data-label="Profile"><a class="btn secondary" href="{{ url_for('member_detail', member_id=m.id) }}">Open</a></td>
     </tr>
     {% else %}
     <tr><td colspan="5"><div class="empty-state">No members yet.</div></td></tr>

@@ -11,22 +11,22 @@
 <form class="search"><input name="q" placeholder="Search session attendees..." value="{{ q }}"><button class="btn">Search</button></form>
 
 <div class="card scroll">
-  <table class="wide">
+  <table class="wide stack-table">
     <tr><th>#</th><th>Name</th><th>Phone</th><th>City</th><th>Studied Where</th><th>Work / Field</th><th>Profile</th></tr>
     {% for m in attendees %}
     <tr>
-      <td>{{ loop.index }}</td>
-      <td>
+      <td data-label="#">{{ loop.index }}</td>
+      <td data-label="Name">
         <span class="person">
           <span class="avatar-sm">{{ (m.full_name_en or '?')[0]|upper }}</span>
           <span class="name-cell">{{ m.full_name_en }}{% if m.full_name_ar %}<span class="sub">{{ m.full_name_ar }}</span>{% endif %}</span>
         </span>
       </td>
-      <td>{{ m.phone or '' }}</td>
-      <td>{{ m.city or '' }}</td>
-      <td>{{ m.studied_where or '' }}</td>
-      <td>{{ m.work or m.field_of_study or '' }}</td>
-      <td><a class="btn secondary" href="{{ url_for('member_detail', member_id=m.id) }}">Open</a></td>
+      <td data-label="Phone">{{ m.phone or '' }}</td>
+      <td data-label="City">{{ m.city or '' }}</td>
+      <td data-label="Studied Where">{{ m.studied_where or '' }}</td>
+      <td data-label="Work / Field">{{ m.work or m.field_of_study or '' }}</td>
+      <td data-label="Profile"><a class="btn secondary" href="{{ url_for('member_detail', member_id=m.id) }}">Open</a></td>
     </tr>
     {% else %}
     <tr><td colspan="7"><div class="empty-state">{% if q %}No attendees match "{{ q }}".{% else %}No attendees yet.{% endif %}</div></td></tr>

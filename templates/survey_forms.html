@@ -13,7 +13,7 @@
 </div>
 
 <div class="card scroll">
-  <table class="wide">
+  <table class="wide stack-table">
     <tr>
       <th>Survey</th>
       <th>Sheet / Source</th>
@@ -23,20 +23,20 @@
     </tr>
     {% for s in survey_forms %}
     <tr>
-      <td>
+      <td data-label="Survey">
         <b>{{ s.title }}</b><br>
         <span class="label">{{ s.description or '' }}</span>
       </td>
-      <td>{{ s.source_sheet_name or '' }}</td>
-      <td>
+      <td data-label="Sheet / Source">{{ s.source_sheet_name or '' }}</td>
+      <td data-label="Source Link">
         {% if s.source_link %}
           <a class="btn secondary" href="{{ url_for('survey_source', form_id=s.id) }}" target="_blank">Open Sheet</a>
         {% else %}
           <span class="label">No link added</span>
         {% endif %}
       </td>
-      <td>{{ s.response_count }}</td>
-      <td class="actions">
+      <td data-label="Responses">{{ s.response_count }}</td>
+      <td class="actions" data-label="Actions">
         <a class="btn" href="{{ url_for('survey_response_new', form_id=s.id) }}">+ Add Response</a>
         <a class="btn secondary" href="{{ url_for('survey_form_edit', form_id=s.id) }}">Edit</a>
         <form method="post" action="{{ url_for('survey_form_delete', form_id=s.id) }}" onsubmit="return confirm('Delete this survey form? Existing responses will be kept.')">

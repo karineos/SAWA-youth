@@ -648,6 +648,21 @@ def member_delete(member_id):
     flash("Member deleted successfully.")
     return redirect(url_for("members"))
 
+@app.route("/members/<int:member_id>/promote", methods=["POST"])
+@login_required
+def member_promote(member_id):
+    conn = get_db()
+    member = conn.execute("SELECT full_name_en FROM members WHERE id=?", (member_id,)).fetchone()
+    if not member:
+        conn.close()
+        flash("Member not found.")
+        return redirect(url_for("members", type="guest"))
+    conn.execute("UPDATE members SET member_type='member' WHERE id=?", (member_id,))
+    conn.commit()
+    conn.close()
+    flash(f"{member['full_name_en']} is now a full member.")
+    return redirect(url_for("members", type="guest"))
+
 @app.route("/events")
 @login_required
 def events():

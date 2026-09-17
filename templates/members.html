@@ -41,6 +41,9 @@
       <td>{{ m.event_count }}</td>
       <td>{{ m.attendance_count }}</td>
       <td class="actions">
+        {% if view_type == 'guest' %}
+        <form method="post" action="{{ url_for('member_promote', member_id=m.id) }}"><button class="btn">+ Add as Member</button></form>
+        {% endif %}
         <a class="btn secondary" href="{{ url_for('member_edit', member_id=m.id) }}">Edit</a>
         <form method="post" action="{{ url_for('member_delete', member_id=m.id) }}" onsubmit="return confirm('Delete this member?')"><button class="btn danger">Delete</button></form>
       </td>

@@ -1,6 +1,9 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="page-header"><h1>Attendance Records</h1></div>
+<div class="page-header">
+  <h1>Attendance Records</h1>
+  <a class="btn secondary" href="{{ url_for('attendance_export', q=q) }}">Export CSV</a>
+</div>
 <form class="search"><input name="q" placeholder="Search by member, event, session..." value="{{ q }}"><button class="btn">Search</button></form>
 <div class="card scroll">
   <table class="wide">

@@ -30,6 +30,7 @@
         <div class="signup-link">
           <input type="text" readonly value="{{ public_signup_url(f.slug) }}" onclick="this.select()">
           <button type="button" class="btn secondary" onclick="navigator.clipboard.writeText(this.previousElementSibling.value); this.textContent='Copied!'">Copy</button>
+          <a class="btn secondary" target="_blank" href="{{ whatsapp_share_url('Sign up for ' ~ f.event_name ~ ': ' ~ public_signup_url(f.slug)) }}">Share on WhatsApp</a>
         </div>
       </td>
       <td>{{ f.response_count }}</td>

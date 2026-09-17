@@ -3,6 +3,7 @@
 <div class="page-header">
   <h1>Survey Responses</h1>
   <div class="actions">
+    <a class="btn secondary" href="{{ url_for('surveys_export', q=q) }}">Export CSV</a>
     <a class="btn" href="{{ url_for('survey_forms') }}">Survey Builder</a>
     <a class="btn secondary" href="{{ url_for('survey_form_new') }}">+ Create Survey</a>
   </div>

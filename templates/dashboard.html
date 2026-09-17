@@ -19,6 +19,32 @@
   <a class="card stat-card" href="{{ url_for('surveys') }}"><div class="stat-card-icon">{{ icons.icon('clipboard') }}</div><div class="stat">{{ stats.surveys }}</div><div class="label">Survey Responses</div></a>
 </div>
 
+{% if birthdays %}
+<div class="card">
+  <div class="page-header" style="margin-bottom:14px">
+    <h2>{{ icons.icon('star') }} Upcoming Birthdays</h2>
+    <span class="label">Next 7 days</span>
+  </div>
+  <table>
+    <tr><th>Name</th><th>Birthday</th><th>Profile</th></tr>
+    {% for b in birthdays %}
+    <tr>
+      <td>
+        <div class="person"><span class="avatar-sm">{{ (b.full_name_en or '?')[0]|upper }}</span>{{ b.full_name_en }}</div>
+      </td>
+      <td>
+        {% if b.days_away == 0 %}<span class="pill success">Today!</span>
+        {% elif b.days_away == 1 %}Tomorrow
+        {% else %}In {{ b.days_away }} days{% endif %}
+        <span class="label">({{ b.bday_date.strftime('%b %-d') }})</span>
+      </td>
+      <td><a class="btn secondary" href="{{ url_for('member_detail', member_id=b.id) }}">Open</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
 <div class="card">
   <div class="page-header" style="margin-bottom:14px">
     <h2>Events Overview</h2>

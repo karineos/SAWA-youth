@@ -208,7 +208,7 @@ label{font-weight:700;font-size:13px;display:block;margin-bottom:6px}
 .hp-field{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 
 /* ---------- Sign-up form links ---------- */
-.signup-link{display:flex;gap:8px;align-items:center;min-width:280px}
+.signup-link{display:flex;gap:8px;align-items:center;min-width:280px;flex-wrap:wrap}
 .signup-link input{font-size:12px;background:#fbf8f4}
 
 details summary{cursor:pointer;color:var(--accent-dark);font-weight:700;font-size:12.5px}

@@ -13,7 +13,13 @@
       {% endif %}
     </p>
   </div>
-  <a class="btn" href="{{ url_for('member_new') }}">+ Add Member</a>
+  <div class="actions">
+    <a class="btn secondary" href="{{ url_for('members_export', type=view_type, q=q) }}">Export CSV</a>
+    {% if view_type != 'guest' %}
+    <a class="btn secondary" href="{{ url_for('member_import') }}">Import CSV</a>
+    {% endif %}
+    <a class="btn" href="{{ url_for('member_new') }}">+ Add Member</a>
+  </div>
 </div>
 
 <form class="search">
@@ -22,11 +28,23 @@
   <button class="btn">Search</button>
 </form>
 
+<div class="card">
+  <div class="actions">
+    <button type="button" class="btn secondary" onclick="toggleAllMembers(true)">Select All</button>
+    <button type="button" class="btn secondary" onclick="toggleAllMembers(false)">Clear Selection</button>
+    {% if view_type == 'guest' %}
+    <button type="button" class="btn" onclick="membersBulkAction('{{ url_for('members_bulk_promote') }}')">+ Add Selected as Members</button>
+    {% endif %}
+    <button type="button" class="btn danger" onclick="membersBulkAction('{{ url_for('members_bulk_delete', type=view_type) }}', 'Delete the selected {{ view_type }}s? This cannot be undone.')">Delete Selected</button>
+  </div>
+</div>
+
 <div class="card scroll">
   <table class="wide">
-    <tr><th>Name</th><th>Phone</th><th>Birth Date</th><th>City</th><th>Studied Where</th><th>Work / Field</th><th>Events</th><th>Attendances</th><th>Actions</th></tr>
+    <tr><th></th><th>Name</th><th>Phone</th><th>Birth Date</th><th>City</th><th>Studied Where</th><th>Work / Field</th><th>Events</th><th>Attendances</th><th>Actions</th></tr>
     {% for m in members %}
     <tr>
+      <td><input type="checkbox" class="member-select" value="{{ m.id }}"></td>
       <td>
         <a href="{{ url_for('member_detail', member_id=m.id) }}" class="person">
           <span class="avatar-sm">{{ (m.full_name_en or '?')[0]|upper }}</span>
@@ -49,7 +67,7 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="9"><div class="empty-state">
+    <tr><td colspan="10"><div class="empty-state">
       {% if q %}No {{ view_type }}s match "{{ q }}".
       {% elif view_type == 'guest' %}No guests yet — they'll show up here after signing up for an event.
       {% else %}No members yet — add your first one.{% endif %}
@@ -57,4 +75,27 @@
     {% endfor %}
   </table>
 </div>
+
+<script>
+function toggleAllMembers(checked){
+  document.querySelectorAll('.member-select').forEach(function(cb){ cb.checked = checked; });
+}
+function membersBulkAction(url, confirmMsg){
+  const ids = Array.from(document.querySelectorAll('.member-select:checked')).map(cb => cb.value);
+  if (ids.length === 0){ alert('Select at least one row first.'); return; }
+  if (confirmMsg && !confirm(confirmMsg)) return;
+  const form = document.createElement('form');
+  form.method = 'post';
+  form.action = url;
+  ids.forEach(function(id){
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'member_ids';
+    input.value = id;
+    form.appendChild(input);
+  });
+  document.body.appendChild(form);
+  form.submit();
+}
+</script>
 {% endblock %}

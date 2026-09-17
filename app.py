@@ -1,9 +1,12 @@
 import os
 import json
+import csv
+import io
 import secrets
 import calendar as calendar_module
-from datetime import date
+from datetime import date, timedelta
 from itertools import groupby
+from urllib.parse import quote
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 import sqlite3
@@ -38,6 +41,23 @@ def public_signup_url(slug):
 
 
 app.jinja_env.globals["public_signup_url"] = public_signup_url
+
+
+def whatsapp_share_url(text):
+    return f"https://wa.me/?text={quote(text)}"
+
+
+app.jinja_env.globals["whatsapp_share_url"] = whatsapp_share_url
+
+
+def csv_response(filename, header, rows):
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(header)
+    writer.writerows(rows)
+    response = app.response_class(output.getvalue(), mimetype="text/csv")
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    return response
 
 MEMBER_FIELDS = [
     "full_name_en", "full_name_ar", "phone", "email", "birth_date", "gender", "city",
@@ -340,6 +360,35 @@ def admin_delete(admin_id):
     flash("Admin deleted successfully.")
     return redirect(url_for("admins"))
 
+def upcoming_birthdays(members, days=7):
+    today = date.today()
+    results = []
+    for m in members:
+        parts = (m["birth_date"] or "").split("-")
+        if len(parts) != 3:
+            continue
+        try:
+            month, day = int(parts[1]), int(parts[2])
+            next_bday = date(today.year, month, day)
+        except ValueError:
+            continue
+        if next_bday < today:
+            try:
+                next_bday = date(today.year + 1, month, day)
+            except ValueError:
+                continue
+        days_away = (next_bday - today).days
+        if 0 <= days_away <= days:
+            results.append({
+                "id": m["id"],
+                "full_name_en": m["full_name_en"],
+                "bday_date": next_bday,
+                "days_away": days_away,
+            })
+    results.sort(key=lambda r: r["days_away"])
+    return results
+
+
 @app.route("/")
 @login_required
 def dashboard():
@@ -368,8 +417,13 @@ def dashboard():
         GROUP BY e.id
         ORDER BY e.name
     """).fetchall()
+    birthday_members = conn.execute("""
+        SELECT id, full_name_en, birth_date FROM members
+        WHERE birth_date IS NOT NULL AND birth_date <> '' AND COALESCE(member_type, 'member') = 'member'
+    """).fetchall()
     conn.close()
-    return render_template("dashboard.html", stats=stats, top_members=top_members, event_counts=event_counts)
+    birthdays = upcoming_birthdays(birthday_members)
+    return render_template("dashboard.html", stats=stats, top_members=top_members, event_counts=event_counts, birthdays=birthdays)
 
 
 @app.route("/calendar")
@@ -552,6 +606,39 @@ def members():
     conn.close()
     return render_template("members.html", members=rows, q=q, view_type=view_type)
 
+
+@app.route("/members/export.csv")
+@login_required
+def members_export():
+    q = request.args.get("q", "").strip()
+    view_type = "guest" if request.args.get("type") == "guest" else "member"
+    conn = get_db()
+    where = "WHERE COALESCE(m.member_type, 'member') = ?"
+    params = [view_type]
+    if q:
+        like = f"%{q}%"
+        where += """ AND (m.full_name_en LIKE ? OR m.full_name_ar LIKE ? OR m.phone LIKE ? OR m.email LIKE ?
+                   OR m.birth_date LIKE ? OR m.city LIKE ? OR m.studied_where LIKE ? OR m.field_of_study LIKE ? OR m.work LIKE ?)"""
+        params += [like]*9
+    rows = conn.execute(f"""
+        SELECT m.*, COUNT(a.id) attendance_count, COUNT(DISTINCT a.event_id) event_count
+        FROM members m
+        LEFT JOIN attendance a ON a.member_id=m.id
+        {where}
+        GROUP BY m.id
+        ORDER BY m.full_name_en
+    """, params).fetchall()
+    conn.close()
+    columns = MEMBER_FIELDS + ["attendance_count", "event_count"]
+    header = ["Full Name (English)", "Full Name (Arabic)", "Phone", "Email", "Birth Date", "Gender", "City",
+              "Current Status", "Studied Where", "Field of Study", "Work", "English Level", "Notes",
+              "Skills", "Interests", "Motivation", "Date Joined", "Blood Type", "Learn More",
+              "Access to Transportation", "Emergency Contact Name", "Emergency Contact Phone", "Member Type",
+              "Attendance Count", "Event Count"]
+    csv_rows = [[row[col] if row[col] is not None else "" for col in columns] for row in rows]
+    return csv_response(f"{view_type}s.csv", header, csv_rows)
+
+
 @app.route("/members/new", methods=["GET","POST"])
 @login_required
 def member_new():
@@ -662,6 +749,122 @@ def member_promote(member_id):
     conn.close()
     flash(f"{member['full_name_en']} is now a full member.")
     return redirect(url_for("members", type="guest"))
+
+
+@app.route("/members/bulk-promote", methods=["POST"])
+@login_required
+def members_bulk_promote():
+    ids = request.form.getlist("member_ids")
+    conn = get_db()
+    for member_id in ids:
+        conn.execute("UPDATE members SET member_type='member' WHERE id=?", (member_id,))
+    conn.commit()
+    conn.close()
+    flash(f"Added {len(ids)} guest(s) as members.")
+    return redirect(url_for("members", type="guest"))
+
+
+@app.route("/members/bulk-delete", methods=["POST"])
+@login_required
+def members_bulk_delete():
+    ids = request.form.getlist("member_ids")
+    view_type = "guest" if request.args.get("type") == "guest" else "member"
+    conn = get_db()
+    for member_id in ids:
+        conn.execute("DELETE FROM members WHERE id=?", (member_id,))
+    conn.commit()
+    conn.close()
+    flash(f"Deleted {len(ids)} {view_type}(s).")
+    return redirect(url_for("members", type=view_type))
+
+
+FIELD_ALIASES = {
+    "full_name_en": ["full name", "full name (english)", "name", "english name"],
+    "full_name_ar": ["full name (arabic)", "arabic name"],
+    "phone": ["phone", "phone number", "mobile", "mobile number", "tel"],
+    "email": ["email", "email address"],
+    "birth_date": ["birth date", "birthday", "date of birth", "dob"],
+    "gender": ["gender", "sex"],
+    "city": ["city", "city / area", "area", "location"],
+    "current_status": ["current status", "status"],
+    "studied_where": ["studied where", "university", "school", "studied where / university"],
+    "field_of_study": ["field of study", "major"],
+    "work": ["work", "job", "occupation"],
+    "english_level": ["english level"],
+    "notes": ["notes", "note"],
+    "skills": ["skills"],
+    "interests": ["interests"],
+    "motivation": ["motivation", "motivation for joining sawa"],
+    "date_joined": ["date joined", "date of joining", "join date"],
+    "blood_type": ["blood type"],
+    "learn_more": ["learn more", "what would they like to learn more"],
+    "has_transportation": ["transportation", "access to transportation"],
+    "emergency_contact_name": ["emergency contact", "emergency contact name"],
+    "emergency_contact_phone": ["emergency contact phone", "emergency phone"],
+}
+
+
+def match_column_to_field(header_text):
+    h = (header_text or "").strip().lower()
+    for field, aliases in FIELD_ALIASES.items():
+        if h == field.replace("_", " ") or h in aliases:
+            return field
+    return None
+
+
+@app.route("/members/import", methods=["GET", "POST"])
+@login_required
+def member_import():
+    if request.method == "POST":
+        file = request.files.get("csv_file")
+        if not file or not file.filename:
+            flash("Please choose a CSV file to upload.")
+            return redirect(url_for("member_import"))
+        content = file.read().decode("utf-8-sig", errors="replace")
+        rows = list(csv.reader(io.StringIO(content)))
+        if not rows:
+            flash("That file looks empty.")
+            return redirect(url_for("member_import"))
+        header = rows[0]
+        data_rows = rows[1:]
+        column_fields = [match_column_to_field(h) for h in header]
+
+        if not any(column_fields):
+            flash("Couldn't recognize any column headers — make sure the first row has names like \"Full Name\", \"Phone\", \"Email\", \"City\", etc.")
+            return redirect(url_for("member_import"))
+
+        conn = get_db()
+        created = updated = skipped = 0
+        for row in data_rows:
+            record = {}
+            for idx, field in enumerate(column_fields):
+                if field and idx < len(row) and row[idx].strip():
+                    record[field] = row[idx].strip()
+            name = record.get("full_name_en", "")
+            if not name:
+                skipped += 1
+                continue
+            phone = record.get("phone", "")
+            existing = conn.execute("SELECT * FROM members WHERE phone=?", (phone,)).fetchone() if phone else None
+            if existing:
+                updates = {k: v for k, v in record.items() if v and not (existing[k] or "").strip()}
+                if updates:
+                    set_clause = ", ".join(f"{k}=?" for k in updates)
+                    conn.execute(f"UPDATE members SET {set_clause} WHERE id=?", tuple(updates.values()) + (existing["id"],))
+                updated += 1
+            else:
+                columns = list(record.keys())
+                conn.execute(
+                    f"INSERT INTO members({', '.join(columns)}) VALUES ({', '.join(['?'] * len(columns))})",
+                    tuple(record.values())
+                )
+                created += 1
+        conn.commit()
+        conn.close()
+        flash(f"Import complete: {created} added, {updated} updated, {skipped} skipped (missing name).")
+        return redirect(url_for("members"))
+    return render_template("member_import.html")
+
 
 @app.route("/events")
 @login_required
@@ -775,6 +978,36 @@ def attendance():
     conn.close()
     return render_template("attendance.html", rows=rows, q=q)
 
+
+@app.route("/attendance/export.csv")
+@login_required
+def attendance_export():
+    q = request.args.get("q", "").strip()
+    conn = get_db()
+    where = ""
+    params = []
+    if q:
+        where = "WHERE m.full_name_en LIKE ? OR e.name LIKE ? OR s.name LIKE ?"
+        params = [f"%{q}%"]*3
+    rows = conn.execute(f"""
+        SELECT m.full_name_en, m.phone, e.name event_name, s.name session_name, s.session_date, e.event_date
+        FROM attendance a
+        JOIN members m ON m.id=a.member_id
+        JOIN events e ON e.id=a.event_id
+        LEFT JOIN sessions s ON s.id=a.session_id
+        {where}
+        ORDER BY e.name, s.session_date, m.full_name_en
+    """, params).fetchall()
+    conn.close()
+    header = ["Member", "Phone", "Event", "Session", "Session Date", "Event Date"]
+    csv_rows = [
+        [r["full_name_en"] or "", r["phone"] or "", r["event_name"] or "",
+         r["session_name"] or "Full event", r["session_date"] or "", r["event_date"] or ""]
+        for r in rows
+    ]
+    return csv_response("attendance.csv", header, csv_rows)
+
+
 @app.route("/surveys")
 @login_required
 def surveys():
@@ -793,6 +1026,34 @@ def surveys():
     """, params).fetchall()
     conn.close()
     return render_template("surveys.html", surveys=rows, q=q)
+
+
+@app.route("/surveys/export.csv")
+@login_required
+def surveys_export():
+    q = request.args.get("q", "").strip()
+    conn = get_db()
+    where = ""
+    params = []
+    if q:
+        where = """WHERE full_name LIKE ? OR phone LIKE ? OR city LIKE ? OR university_school LIKE ?
+                   OR field_work LIKE ? OR interest_reason LIKE ? OR learn_most LIKE ? OR heard_from LIKE ?"""
+        params = [f"%{q}%"]*8
+    rows = conn.execute(f"""
+        SELECT * FROM surveys
+        {where}
+        ORDER BY timestamp DESC, full_name
+    """, params).fetchall()
+    conn.close()
+    columns = ["survey_name", "timestamp", "full_name", "phone", "birth_date", "gender", "city",
+               "current_status", "university_school", "field_work", "english_level", "interest_reason",
+               "attended_before", "learn_most", "heard_from", "raw_answers"]
+    header = ["Survey", "Timestamp", "Full Name", "Phone", "Birth Date", "Gender", "City", "Status",
+              "University / School", "Field / Work", "English Level", "Why Interested", "Attended Before",
+              "Learn Most", "Heard From", "Raw Answers"]
+    csv_rows = [[row[col] or "" for col in columns] for row in rows]
+    return csv_response("survey_responses.csv", header, csv_rows)
+
 
 @app.route("/surveys/<int:survey_id>")
 @login_required

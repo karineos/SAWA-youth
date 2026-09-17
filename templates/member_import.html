@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><h1>Import Members from CSV</h1></div>
+
+<div class="card">
+  <h2 class="section-title">How it works</h2>
+  <p class="label">
+    Upload a CSV file exported from Excel or Google Sheets. The first row should have column
+    headers like <b>Full Name</b>, <b>Phone</b>, <b>Email</b>, <b>City</b>, <b>Work</b>, etc. —
+    we'll match them automatically. Columns we don't recognize are just ignored.
+  </p>
+  <p class="label" style="margin-top:10px">
+    If someone's phone number matches an existing member, we fill in any blank fields for them
+    instead of creating a duplicate — we never overwrite information you've already entered.
+    Rows with no name are skipped.
+  </p>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="card">
+  <div class="form-grid">
+    <div class="full">
+      <label>CSV File</label>
+      <input type="file" name="csv_file" accept=".csv" required>
+    </div>
+  </div>
+  <br>
+  <button class="btn">Import</button>
+  <a class="btn secondary" href="{{ url_for('members') }}">Cancel</a>
+</form>
+{% endblock %}

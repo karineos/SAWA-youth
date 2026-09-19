@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><h1>Edit Admin — {{ admin.full_name or admin.username }}</h1></div>
+
+<form method="post" class="card">
+  <div class="form-grid">
+    <div>
+      <label>Full Name</label>
+      <input name="full_name" value="{{ admin.full_name or '' }}">
+    </div>
+    <div>
+      <label>Username</label>
+      <input value="{{ admin.username }}" disabled>
+    </div>
+    <div>
+      <label>Role</label>
+      <select name="role">
+        <option value="admin" {% if admin.role == 'admin' %}selected{% endif %}>Admin</option>
+        <option value="contributor" {% if admin.role != 'admin' %}selected{% endif %}>Contributor</option>
+      </select>
+    </div>
+    <div>
+      <label>New Password</label>
+      <input name="password" type="password" placeholder="Leave blank to keep current password">
+    </div>
+  </div>
+  <br>
+  <button class="btn">Save</button>
+  <a class="btn secondary" href="{{ url_for('admins') }}">Cancel</a>
+</form>
+{% endblock %}

@@ -49,7 +49,8 @@
       <td data-label="Username">{{ a.username }}</td>
       <td data-label="Role"><span class="pill {{ 'success' if a.role == 'admin' else 'muted' }}">{{ 'Admin' if a.role == 'admin' else 'Contributor' }}</span></td>
       <td data-label="Created">{{ a.created_at }}</td>
-      <td data-label="Action">
+      <td class="actions" data-label="Action">
+        <a class="btn secondary" href="{{ url_for('admin_edit', admin_id=a.id) }}">Edit</a>
         <form method="post" action="{{ url_for('admin_delete', admin_id=a.id) }}" onsubmit="return confirm('Delete this admin?')">
           <button class="btn danger">Delete</button>
         </form>

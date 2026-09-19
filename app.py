@@ -387,6 +387,42 @@ def admins():
     conn.close()
     return render_template("admins.html", admins=rows)
 
+@app.route("/admins/<int:admin_id>/edit", methods=["GET", "POST"])
+@admin_required
+def admin_edit(admin_id):
+    conn = get_db()
+    admin = conn.execute("SELECT id, username, full_name, role FROM admins WHERE id=?", (admin_id,)).fetchone()
+    if not admin:
+        conn.close()
+        flash("Admin not found.")
+        return redirect(url_for("admins"))
+    if request.method == "POST":
+        full_name = request.form.get("full_name", "").strip()
+        role = request.form.get("role", "admin").strip()
+        role = role if role in ("admin", "contributor") else "admin"
+        password = request.form.get("password", "")
+        if admin_id == session.get("admin_id") and role != "admin":
+            conn.close()
+            flash("You cannot demote your own admin account while logged in.")
+            return redirect(url_for("admins"))
+        if password:
+            conn.execute(
+                "UPDATE admins SET full_name=?, role=?, password_hash=? WHERE id=?",
+                (full_name, role, generate_password_hash(password, method="pbkdf2:sha256"), admin_id)
+            )
+        else:
+            conn.execute("UPDATE admins SET full_name=?, role=? WHERE id=?", (full_name, role, admin_id))
+        conn.commit()
+        conn.close()
+        if admin_id == session.get("admin_id"):
+            session["admin_role"] = role
+            session["admin_name"] = full_name or admin["username"]
+        flash("Admin updated successfully.")
+        return redirect(url_for("admins"))
+    conn.close()
+    return render_template("admin_form.html", admin=admin)
+
+
 @app.route("/admins/<int:admin_id>/delete", methods=["POST"])
 @admin_required
 def admin_delete(admin_id):

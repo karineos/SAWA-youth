@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><h1>{{ 'Edit Business' if business else 'Add Business' }}</h1></div>
+<form method="post">
+  <div class="card">
+    <h2 class="section-title">Business Details</h2>
+    <div class="form-grid">
+      <div class="full"><label>Business Name</label><input name="business_name" required value="{{ business.business_name if business else '' }}"></div>
+      <div><label>Owner Name</label><input name="owner_name" value="{{ business.owner_name if business else '' }}"></div>
+      <div><label>Phone</label><input name="phone" value="{{ business.phone if business else '' }}"></div>
+      <div><label>Sector</label><input name="sector" placeholder="Example: Food, Crafts, Retail" value="{{ business.sector if business else '' }}"></div>
+      <div><label>Date Opened</label><input type="date" name="date_opened" value="{{ business.date_opened if business else '' }}"></div>
+      <div class="full"><label>Location</label><input name="location" value="{{ business.location if business else '' }}"></div>
+      <div class="full"><label>Notes</label><textarea name="notes">{{ business.notes if business else '' }}</textarea></div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn">Save</button>
+    <a class="btn secondary" href="{{ url_for('businesses') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

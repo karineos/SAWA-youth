@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Small Businesses</h1>
+    <p class="label">Track small businesses the organization supports and their periodic assessments.</p>
+  </div>
+  <a class="btn" href="{{ url_for('business_new') }}">+ Add Business</a>
+</div>
+
+<form class="search"><input name="q" placeholder="Search by business name, owner, phone, or sector..." value="{{ q }}"><button class="btn">Search</button></form>
+
+<div class="card scroll">
+  <table class="wide stack-table">
+    <tr><th>Business</th><th>Owner</th><th>Phone</th><th>Sector</th><th>Opened</th><th>Assessments</th><th>Last Assessed</th><th>Actions</th></tr>
+    {% for b in businesses %}
+    <tr>
+      <td data-label="Business"><b>{{ b.business_name }}</b></td>
+      <td data-label="Owner">{{ b.owner_name or '' }}</td>
+      <td data-label="Phone">{{ b.phone or '' }}</td>
+      <td data-label="Sector">{% if b.sector %}<span class="pill">{{ b.sector }}</span>{% endif %}</td>
+      <td data-label="Opened">{{ b.date_opened or '' }}</td>
+      <td data-label="Assessments">{{ b.assessment_count }}</td>
+      <td data-label="Last Assessed">{{ b.last_assessed or '' }}</td>
+      <td class="actions" data-label="Actions">
+        <a class="btn secondary" href="{{ url_for('business_detail', business_id=b.id) }}">Open</a>
+        <a class="btn secondary" href="{{ url_for('business_edit', business_id=b.id) }}">Edit</a>
+        <form method="post" action="{{ url_for('business_delete', business_id=b.id) }}" onsubmit="return confirm('Delete this business? Its assessments will also be removed.')">
+          <button class="btn danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8"><div class="empty-state">{% if q %}No businesses match "{{ q }}".{% else %}No businesses added yet.{% endif %}</div></td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

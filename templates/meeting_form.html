@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><h1>{{ 'Edit Meeting' if meeting else 'Schedule Meeting' }}</h1></div>
+<form method="post">
+  <div class="card">
+    <h2 class="section-title">Meeting Details</h2>
+    <div class="form-grid">
+      <div class="full"><label>Title</label><input name="title" required placeholder="Example: Monthly Board Check-In" value="{{ meeting.title if meeting else '' }}"></div>
+      <div class="full">
+        <label>Department / Program</label>
+        <input name="department" list="department-options" placeholder="Example: Sawa Youth" value="{{ meeting.department if meeting else '' }}">
+        <datalist id="department-options">
+          {% for d in departments %}<option value="{{ d }}">{% endfor %}
+        </datalist>
+      </div>
+      <div><label>Date</label><input type="date" name="meeting_date" value="{{ meeting.meeting_date if meeting else '' }}"></div>
+      <div><label>Time</label><input type="time" name="meeting_time" value="{{ meeting.meeting_time if meeting else '' }}"></div>
+      <div class="full"><label>Location</label><input name="location" placeholder="Example: SAWA Office, or a video call link" value="{{ meeting.location if meeting else '' }}"></div>
+      <div class="full"><label>Notes / Agenda</label><textarea name="notes" placeholder="What's this meeting about?">{{ meeting.notes if meeting else '' }}</textarea></div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn">Save</button>
+    <a class="btn secondary" href="{{ url_for('meetings') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

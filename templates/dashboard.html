@@ -7,19 +7,26 @@
     <p class="label">Quick overview of members, events, surveys, and attendance.</p>
   </div>
   <div class="actions">
+    {% if session.get('admin_role') == 'admin' %}
     <a class="btn" href="{{ url_for('active_members') }}">View Most Active Users</a>
+    {% endif %}
     <a class="btn secondary" href="{{ url_for('events') }}">View Event Attendees</a>
   </div>
 </div>
 
 <div class="grid">
+  {% if session.get('admin_role') == 'admin' %}
   <a class="card stat-card" href="{{ url_for('members') }}"><div class="stat-card-icon">{{ icons.icon('users') }}</div><div class="stat">{{ stats.members }}</div><div class="label">Members</div></a>
+  {% endif %}
   <a class="card stat-card" href="{{ url_for('events') }}"><div class="stat-card-icon">{{ icons.icon('calendar') }}</div><div class="stat">{{ stats.events }}</div><div class="label">Events</div></a>
+  {% if session.get('admin_role') == 'admin' %}
   <a class="card stat-card" href="{{ url_for('attendance') }}"><div class="stat-card-icon">{{ icons.icon('check') }}</div><div class="stat">{{ stats.attendance }}</div><div class="label">Attendance Records</div></a>
   <a class="card stat-card" href="{{ url_for('surveys') }}"><div class="stat-card-icon">{{ icons.icon('clipboard') }}</div><div class="stat">{{ stats.surveys }}</div><div class="label">Survey Responses</div></a>
+  {% endif %}
+  <a class="card stat-card" href="{{ url_for('meetings') }}"><div class="stat-card-icon">{{ icons.icon('meeting') }}</div><div class="stat">{{ stats.meetings }}</div><div class="label">Meetings</div></a>
 </div>
 
-{% if birthdays %}
+{% if session.get('admin_role') == 'admin' and birthdays %}
 <div class="card">
   <div class="page-header" style="margin-bottom:14px">
     <h2 class="icon-title">{{ icons.icon('star') }} Upcoming Birthdays</h2>
@@ -65,6 +72,7 @@
   </table>
 </div>
 
+{% if session.get('admin_role') == 'admin' %}
 <div class="card">
   <div class="page-header" style="margin-bottom:14px">
     <h2>Most Active Members</h2>
@@ -87,4 +95,5 @@
     {% endfor %}
   </table>
 </div>
+{% endif %}
 {% endblock %}

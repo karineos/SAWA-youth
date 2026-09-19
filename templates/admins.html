@@ -4,6 +4,10 @@
 
 <div class="card">
   <h2>Add Admin</h2>
+  <p class="label" style="margin-bottom:16px">
+    <b>Admins</b> can manage everything — members, events, meetings, forms, businesses, and other admins.
+    <b>Contributors</b> can only take attendance for events and add meeting minutes (MOMs).
+  </p>
   <form method="post" class="form-grid">
     <div>
       <label>Full Name</label>
@@ -19,7 +23,10 @@
     </div>
     <div>
       <label>Role</label>
-      <input name="role" value="admin">
+      <select name="role">
+        <option value="admin">Admin</option>
+        <option value="contributor">Contributor</option>
+      </select>
     </div>
     <div class="full">
       <button class="btn">+ Add Admin</button>
@@ -40,7 +47,7 @@
         </span>
       </td>
       <td data-label="Username">{{ a.username }}</td>
-      <td data-label="Role"><span class="pill">{{ a.role }}</span></td>
+      <td data-label="Role"><span class="pill {{ 'success' if a.role == 'admin' else 'muted' }}">{{ 'Admin' if a.role == 'admin' else 'Contributor' }}</span></td>
       <td data-label="Created">{{ a.created_at }}</td>
       <td data-label="Action">
         <form method="post" action="{{ url_for('admin_delete', admin_id=a.id) }}" onsubmit="return confirm('Delete this admin?')">

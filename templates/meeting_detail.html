@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ meeting.title }}</h1>
+    <p class="label">
+      {% if meeting.department %}<span class="pill">{{ meeting.department }}</span> · {% endif %}
+      {{ meeting.meeting_date or 'No date set' }}{% if meeting.meeting_time %} at {{ meeting.meeting_time }}{% endif %}
+      {% if meeting.location %} · {{ meeting.location }}{% endif %}
+    </p>
+  </div>
+  <div class="actions">
+    {% if session.get('admin_role') == 'admin' %}
+    <a class="btn secondary" href="{{ url_for('meeting_edit', meeting_id=meeting.id) }}">Edit</a>
+    <form method="post" action="{{ url_for('meeting_delete', meeting_id=meeting.id) }}" onsubmit="return confirm('Delete this meeting? Its minutes will also be removed.')">
+      <button class="btn danger">Delete</button>
+    </form>
+    {% endif %}
+    <a class="btn secondary" href="{{ url_for('meetings') }}">Back to Meetings</a>
+  </div>
+</div>
+
+{% if meeting.notes %}
+<div class="card">
+  <h2 class="section-title">Agenda / Notes</h2>
+  <p>{{ meeting.notes }}</p>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2 class="section-title">Add Minutes of Meeting (MOM)</h2>
+  <form method="post" action="{{ url_for('meeting_add_minutes', meeting_id=meeting.id) }}">
+    <div class="form-grid">
+      <div class="full">
+        <label>What happened, what was decided, next steps...</label>
+        <textarea name="content" required placeholder="Write the minutes for this meeting..." style="min-height:120px"></textarea>
+      </div>
+    </div>
+    <br>
+    <button class="btn">+ Add Minutes</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2 class="section-title">Minutes of Meeting — {{ minutes|length }} entry(ies)</h2>
+  {% for m in minutes %}
+  <div style="padding:14px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+    <div style="flex:1;min-width:200px">
+      <p class="label" style="margin-bottom:6px"><b>{{ m.author_name or 'Unknown' }}</b> · {{ m.created_at }}</p>
+      <p style="white-space:pre-wrap;margin:0">{{ m.content }}</p>
+    </div>
+    {% if session.get('admin_role') == 'admin' %}
+    <form method="post" action="{{ url_for('meeting_minutes_delete', minutes_id=m.id) }}" onsubmit="return confirm('Delete this MOM entry?')">
+      <button type="submit" class="btn danger">Delete</button>
+    </form>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="empty-state">No minutes added yet.</div>
+  {% endfor %}
+</div>
+{% endblock %}

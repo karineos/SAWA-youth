@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 style="margin-bottom:0">{{ business.business_name }}</h1>
+    <span class="label">{{ business.owner_name or '' }}</span>
+  </div>
+  <div class="actions">
+    <a class="btn secondary" href="{{ url_for('business_edit', business_id=business.id) }}">Edit</a>
+    <a class="btn" href="{{ url_for('business_assessment_new', business_id=business.id) }}">+ New Assessment</a>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="section-title">Business Information</h2>
+  <div class="profile-grid">
+    <p><b>Owner:</b> {{ business.owner_name or '-' }}</p>
+    <p><b>Phone:</b> {{ business.phone or '-' }}</p>
+    <p><b>Sector:</b> {{ business.sector or '-' }}</p>
+    <p><b>Location:</b> {{ business.location or '-' }}</p>
+    <p><b>Date Opened:</b> {{ business.date_opened or '-' }}</p>
+    <p class="full"><b>Notes:</b> {{ business.notes or '-' }}</p>
+  </div>
+</div>
+
+<div class="card scroll">
+  <h2 style="padding:16px 16px 0">Assessment History — {{ assessments|length }} record(s)</h2>
+  <table class="wide stack-table">
+    <tr><th>Date</th><th>Monthly Income</th><th>Monthly Profit</th><th>Monthly Expenses</th><th>Employees</th><th>Challenges</th><th>Support Needed</th><th>Actions</th></tr>
+    {% for a in assessments %}
+    <tr>
+      <td data-label="Date">{{ a.assessment_date or '' }}</td>
+      <td data-label="Monthly Income">{{ a.monthly_income or '' }}</td>
+      <td data-label="Monthly Profit">{{ a.monthly_profit or '' }}</td>
+      <td data-label="Monthly Expenses">{{ a.monthly_expenses or '' }}</td>
+      <td data-label="Employees">{{ a.employees_count or '' }}</td>
+      <td data-label="Challenges">{{ a.challenges or '' }}</td>
+      <td data-label="Support Needed">{{ a.support_needed or '' }}</td>
+      <td data-label="Actions">
+        <form method="post" action="{{ url_for('business_assessment_delete', assessment_id=a.id) }}" onsubmit="return confirm('Delete this assessment?')">
+          <button class="btn danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8"><div class="empty-state">No assessments yet — add the first one to start tracking this business over time.</div></td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

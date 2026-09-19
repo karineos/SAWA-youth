@@ -73,7 +73,8 @@ h2{font-size:17px}
 .sidebar-foot{padding:14px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:10px}
 .sidebar-user{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
 .sidebar-user .avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:0 0 auto}
-.sidebar-user-name{font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-user-name{font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;flex-direction:column;gap:1px;min-width:0}
+.sidebar-user-name small{font-size:10px;font-weight:600;color:var(--sidebar-text-muted);text-transform:uppercase;letter-spacing:.05em}
 .sidebar-logout{color:var(--sidebar-text);display:flex;padding:6px;border-radius:8px}
 .sidebar-logout:hover{background:rgba(255,255,255,.08);color:#fff}
 .sidebar-logout svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -180,6 +181,7 @@ label{font-weight:700;font-size:13px;display:block;margin-bottom:6px}
 .calendar-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;display:inline-block;background:var(--accent)}
 .calendar-dot.event{background:var(--accent)}
 .calendar-dot.session{background:#a9773f}
+.calendar-dot.meeting{background:#3f6f8b}
 .calendar-dot.birthday{background:#b34a7a}
 .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:auto;grid-auto-rows:112px;gap:6px;min-width:760px}
 .calendar-weekday{text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:800;color:var(--muted);padding:6px 0}

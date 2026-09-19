@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header"><h1>New Assessment — {{ business.business_name }}</h1></div>
+<form method="post">
+  <div class="card">
+    <h2 class="section-title">Assessment Details</h2>
+    <div class="form-grid">
+      <div><label>Assessment Date</label><input type="date" name="assessment_date"></div>
+      <div><label>Number of Employees</label><input type="number" name="employees_count" min="0"></div>
+      <div><label>Monthly Income</label><input name="monthly_income" placeholder="Example: $500"></div>
+      <div><label>Monthly Profit</label><input name="monthly_profit" placeholder="Example: $150"></div>
+      <div class="full"><label>Monthly Expenses</label><input name="monthly_expenses" placeholder="Example: rent, supplies, salaries..."></div>
+      <div class="full"><label>Challenges Faced</label><textarea name="challenges" placeholder="What's currently getting in the way?"></textarea></div>
+      <div class="full"><label>Support Needed</label><textarea name="support_needed" placeholder="What kind of help would make the biggest difference?"></textarea></div>
+      <div class="full"><label>Notes</label><textarea name="notes"></textarea></div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn">Save Assessment</button>
+    <a class="btn secondary" href="{{ url_for('business_detail', business_id=business.id) }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

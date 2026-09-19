@@ -306,6 +306,22 @@ def login_required(view):
     return wrapped_view
 
 
+def admin_required(view):
+    """Like login_required, but also requires the 'admin' role — Contributors
+    are limited to taking attendance and adding meeting minutes, so anything
+    that manages members, events, forms, meetings, businesses, or other
+    admins needs this instead of plain login_required."""
+    @wraps(view)
+    def wrapped_view(*args, **kwargs):
+        if not session.get("admin_id"):
+            return redirect(url_for("login"))
+        if session.get("admin_role") != "admin":
+            flash("Only admins can do that.")
+            return redirect(url_for("dashboard"))
+        return view(*args, **kwargs)
+    return wrapped_view
+
+
 _schema_ready = False
 
 
@@ -333,6 +349,7 @@ def login():
             session["admin_id"] = admin["id"]
             session["admin_username"] = admin["username"]
             session["admin_name"] = admin["full_name"] or admin["username"]
+            session["admin_role"] = admin["role"] or "admin"
             flash("Logged in successfully.")
             return redirect(url_for("dashboard"))
         flash("Invalid username or password.")
@@ -345,14 +362,15 @@ def logout():
     return redirect(url_for("login"))
 
 @app.route("/admins", methods=["GET", "POST"])
-@login_required
+@admin_required
 def admins():
     conn = get_db()
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         full_name = request.form.get("full_name", "").strip()
-        role = request.form.get("role", "admin").strip() or "admin"
+        role = request.form.get("role", "admin").strip()
+        role = role if role in ("admin", "contributor") else "admin"
         if not username or not password:
             flash("Username and password are required.")
         else:
@@ -370,7 +388,7 @@ def admins():
     return render_template("admins.html", admins=rows)
 
 @app.route("/admins/<int:admin_id>/delete", methods=["POST"])
-@login_required
+@admin_required
 def admin_delete(admin_id):
     if admin_id == session.get("admin_id"):
         flash("You cannot delete your own admin account while logged in.")
@@ -381,6 +399,314 @@ def admin_delete(admin_id):
     conn.close()
     flash("Admin deleted successfully.")
     return redirect(url_for("admins"))
+
+MEETING_DEPARTMENTS = ["Technology & Tamkeen", "Sawa Youth", "Ghassan Jisr Community", "SAWA"]
+
+
+def known_departments(conn):
+    used = {
+        r["department"] for r in conn.execute(
+            "SELECT DISTINCT department FROM meetings WHERE department IS NOT NULL AND department <> ''"
+        ).fetchall()
+    }
+    return sorted(used | set(MEETING_DEPARTMENTS))
+
+
+@app.route("/meetings")
+@login_required
+def meetings():
+    q = request.args.get("q", "").strip()
+    conn = get_db()
+    where = ""
+    params = []
+    if q:
+        where = "WHERE title LIKE ? OR department LIKE ? OR location LIKE ?"
+        params = [f"%{q}%"] * 3
+    rows = conn.execute(f"""
+        SELECT m.*, COUNT(mm.id) minutes_count
+        FROM meetings m
+        LEFT JOIN meeting_minutes mm ON mm.meeting_id = m.id
+        {where}
+        GROUP BY m.id
+        ORDER BY m.meeting_date DESC, m.meeting_time DESC
+    """, params).fetchall()
+    conn.close()
+    return render_template("meetings.html", meetings=rows, q=q)
+
+
+@app.route("/meetings/new", methods=["GET", "POST"])
+@admin_required
+def meeting_new():
+    conn = get_db()
+    departments = known_departments(conn)
+    if request.method == "POST":
+        data = request.form
+        title = data.get("title", "").strip()
+        if not title:
+            conn.close()
+            flash("Meeting title is required.")
+            return render_template("meeting_form.html", meeting=None, departments=departments)
+        conn.execute(
+            "INSERT INTO meetings(title, department, meeting_date, meeting_time, location, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (title, data.get("department", "").strip(), data.get("meeting_date"), data.get("meeting_time"),
+             data.get("location", "").strip(), data.get("notes", "").strip(), session.get("admin_id"))
+        )
+        conn.commit()
+        conn.close()
+        flash("Meeting scheduled successfully.")
+        return redirect(url_for("meetings"))
+    conn.close()
+    return render_template("meeting_form.html", meeting=None, departments=departments)
+
+
+@app.route("/meetings/<int:meeting_id>/edit", methods=["GET", "POST"])
+@admin_required
+def meeting_edit(meeting_id):
+    conn = get_db()
+    meeting = conn.execute("SELECT * FROM meetings WHERE id=?", (meeting_id,)).fetchone()
+    if not meeting:
+        conn.close()
+        flash("Meeting not found.")
+        return redirect(url_for("meetings"))
+    departments = known_departments(conn)
+    if request.method == "POST":
+        data = request.form
+        title = data.get("title", "").strip()
+        if not title:
+            conn.close()
+            flash("Meeting title is required.")
+            return render_template("meeting_form.html", meeting=meeting, departments=departments)
+        conn.execute(
+            "UPDATE meetings SET title=?, department=?, meeting_date=?, meeting_time=?, location=?, notes=? WHERE id=?",
+            (title, data.get("department", "").strip(), data.get("meeting_date"), data.get("meeting_time"),
+             data.get("location", "").strip(), data.get("notes", "").strip(), meeting_id)
+        )
+        conn.commit()
+        conn.close()
+        flash("Meeting updated successfully.")
+        return redirect(url_for("meetings"))
+    conn.close()
+    return render_template("meeting_form.html", meeting=meeting, departments=departments)
+
+
+@app.route("/meetings/<int:meeting_id>/delete", methods=["POST"])
+@admin_required
+def meeting_delete(meeting_id):
+    conn = get_db()
+    conn.execute("DELETE FROM meetings WHERE id=?", (meeting_id,))
+    conn.commit()
+    conn.close()
+    flash("Meeting deleted successfully.")
+    return redirect(url_for("meetings"))
+
+
+@app.route("/meetings/<int:meeting_id>")
+@login_required
+def meeting_detail(meeting_id):
+    conn = get_db()
+    meeting = conn.execute("SELECT * FROM meetings WHERE id=?", (meeting_id,)).fetchone()
+    if not meeting:
+        conn.close()
+        flash("Meeting not found.")
+        return redirect(url_for("meetings"))
+    minutes = conn.execute("""
+        SELECT mm.*, COALESCE(a.full_name, a.username) AS author_name
+        FROM meeting_minutes mm
+        LEFT JOIN admins a ON a.id = mm.created_by
+        WHERE mm.meeting_id = ?
+        ORDER BY mm.created_at DESC
+    """, (meeting_id,)).fetchall()
+    conn.close()
+    return render_template("meeting_detail.html", meeting=meeting, minutes=minutes)
+
+
+@app.route("/meetings/<int:meeting_id>/minutes", methods=["POST"])
+@login_required
+def meeting_add_minutes(meeting_id):
+    content = request.form.get("content", "").strip()
+    conn = get_db()
+    meeting = conn.execute("SELECT id FROM meetings WHERE id=?", (meeting_id,)).fetchone()
+    if not meeting:
+        conn.close()
+        flash("Meeting not found.")
+        return redirect(url_for("meetings"))
+    if not content:
+        conn.close()
+        flash("Minutes can't be empty.")
+        return redirect(url_for("meeting_detail", meeting_id=meeting_id))
+    conn.execute(
+        "INSERT INTO meeting_minutes(meeting_id, content, created_by) VALUES (?, ?, ?)",
+        (meeting_id, content, session.get("admin_id"))
+    )
+    conn.commit()
+    conn.close()
+    flash("Minutes added successfully.")
+    return redirect(url_for("meeting_detail", meeting_id=meeting_id))
+
+
+@app.route("/meetings/minutes/<int:minutes_id>/delete", methods=["POST"])
+@admin_required
+def meeting_minutes_delete(minutes_id):
+    conn = get_db()
+    row = conn.execute("SELECT meeting_id FROM meeting_minutes WHERE id=?", (minutes_id,)).fetchone()
+    if not row:
+        conn.close()
+        flash("Minutes not found.")
+        return redirect(url_for("meetings"))
+    meeting_id = row["meeting_id"]
+    conn.execute("DELETE FROM meeting_minutes WHERE id=?", (minutes_id,))
+    conn.commit()
+    conn.close()
+    flash("Minutes deleted.")
+    return redirect(url_for("meeting_detail", meeting_id=meeting_id))
+
+
+BUSINESS_FIELDS = ["business_name", "owner_name", "phone", "sector", "location", "date_opened", "notes"]
+ASSESSMENT_FIELDS = [
+    "assessment_date", "monthly_income", "monthly_profit", "monthly_expenses",
+    "employees_count", "challenges", "support_needed", "notes",
+]
+
+
+@app.route("/businesses")
+@admin_required
+def businesses():
+    q = request.args.get("q", "").strip()
+    conn = get_db()
+    where = ""
+    params = []
+    if q:
+        where = "WHERE b.business_name LIKE ? OR b.owner_name LIKE ? OR b.phone LIKE ? OR b.sector LIKE ?"
+        params = [f"%{q}%"] * 4
+    rows = conn.execute(f"""
+        SELECT b.*, COUNT(ba.id) assessment_count, MAX(ba.assessment_date) last_assessed
+        FROM businesses b
+        LEFT JOIN business_assessments ba ON ba.business_id = b.id
+        {where}
+        GROUP BY b.id
+        ORDER BY b.business_name
+    """, params).fetchall()
+    conn.close()
+    return render_template("businesses.html", businesses=rows, q=q)
+
+
+@app.route("/businesses/new", methods=["GET", "POST"])
+@admin_required
+def business_new():
+    if request.method == "POST":
+        data = request.form
+        name = data.get("business_name", "").strip()
+        if not name:
+            flash("Business name is required.")
+            return render_template("business_form.html", business=None)
+        conn = get_db()
+        conn.execute(
+            f"INSERT INTO businesses({', '.join(BUSINESS_FIELDS)}) VALUES ({', '.join(['?'] * len(BUSINESS_FIELDS))})",
+            tuple(data.get(f, "").strip() for f in BUSINESS_FIELDS)
+        )
+        conn.commit()
+        conn.close()
+        flash("Business added successfully.")
+        return redirect(url_for("businesses"))
+    return render_template("business_form.html", business=None)
+
+
+@app.route("/businesses/<int:business_id>/edit", methods=["GET", "POST"])
+@admin_required
+def business_edit(business_id):
+    conn = get_db()
+    business = conn.execute("SELECT * FROM businesses WHERE id=?", (business_id,)).fetchone()
+    if not business:
+        conn.close()
+        flash("Business not found.")
+        return redirect(url_for("businesses"))
+    if request.method == "POST":
+        data = request.form
+        name = data.get("business_name", "").strip()
+        if not name:
+            conn.close()
+            flash("Business name is required.")
+            return render_template("business_form.html", business=business)
+        set_clause = ", ".join(f"{f}=?" for f in BUSINESS_FIELDS)
+        conn.execute(f"UPDATE businesses SET {set_clause} WHERE id=?",
+                     tuple(data.get(f, "").strip() for f in BUSINESS_FIELDS) + (business_id,))
+        conn.commit()
+        conn.close()
+        flash("Business updated successfully.")
+        return redirect(url_for("business_detail", business_id=business_id))
+    conn.close()
+    return render_template("business_form.html", business=business)
+
+
+@app.route("/businesses/<int:business_id>/delete", methods=["POST"])
+@admin_required
+def business_delete(business_id):
+    conn = get_db()
+    conn.execute("DELETE FROM businesses WHERE id=?", (business_id,))
+    conn.commit()
+    conn.close()
+    flash("Business deleted successfully.")
+    return redirect(url_for("businesses"))
+
+
+@app.route("/businesses/<int:business_id>")
+@admin_required
+def business_detail(business_id):
+    conn = get_db()
+    business = conn.execute("SELECT * FROM businesses WHERE id=?", (business_id,)).fetchone()
+    if not business:
+        conn.close()
+        flash("Business not found.")
+        return redirect(url_for("businesses"))
+    assessments = conn.execute(
+        "SELECT * FROM business_assessments WHERE business_id=? ORDER BY assessment_date DESC, id DESC",
+        (business_id,)
+    ).fetchall()
+    conn.close()
+    return render_template("business_detail.html", business=business, assessments=assessments)
+
+
+@app.route("/businesses/<int:business_id>/assessments/new", methods=["GET", "POST"])
+@admin_required
+def business_assessment_new(business_id):
+    conn = get_db()
+    business = conn.execute("SELECT * FROM businesses WHERE id=?", (business_id,)).fetchone()
+    if not business:
+        conn.close()
+        flash("Business not found.")
+        return redirect(url_for("businesses"))
+    if request.method == "POST":
+        data = request.form
+        columns = ASSESSMENT_FIELDS + ["business_id", "assessed_by"]
+        values = [data.get(f, "").strip() for f in ASSESSMENT_FIELDS] + [business_id, session.get("admin_id")]
+        conn.execute(
+            f"INSERT INTO business_assessments({', '.join(columns)}) VALUES ({', '.join(['?'] * len(columns))})",
+            tuple(values)
+        )
+        conn.commit()
+        conn.close()
+        flash("Assessment added successfully.")
+        return redirect(url_for("business_detail", business_id=business_id))
+    conn.close()
+    return render_template("business_assessment_form.html", business=business)
+
+
+@app.route("/businesses/assessments/<int:assessment_id>/delete", methods=["POST"])
+@admin_required
+def business_assessment_delete(assessment_id):
+    conn = get_db()
+    row = conn.execute("SELECT business_id FROM business_assessments WHERE id=?", (assessment_id,)).fetchone()
+    if not row:
+        conn.close()
+        flash("Assessment not found.")
+        return redirect(url_for("businesses"))
+    business_id = row["business_id"]
+    conn.execute("DELETE FROM business_assessments WHERE id=?", (assessment_id,))
+    conn.commit()
+    conn.close()
+    flash("Assessment deleted.")
+    return redirect(url_for("business_detail", business_id=business_id))
+
 
 def upcoming_birthdays(members, days=7):
     today = date.today()
@@ -420,6 +746,7 @@ def dashboard():
         "events": conn.execute("SELECT COUNT(*) c FROM events").fetchone()["c"],
         "attendance": conn.execute("SELECT COUNT(*) c FROM attendance").fetchone()["c"],
         "surveys": conn.execute("SELECT COUNT(*) c FROM surveys").fetchone()["c"],
+        "meetings": conn.execute("SELECT COUNT(*) c FROM meetings").fetchone()["c"],
     }
     top_members = conn.execute("""
         SELECT m.id, m.full_name_en, m.phone,
@@ -469,10 +796,17 @@ def calendar_view():
         FROM sessions s JOIN events e ON e.id = s.event_id
         WHERE s.session_date IS NOT NULL AND s.session_date <> ''
     """).fetchall()
-    members = conn.execute("""
-        SELECT id, full_name_en, birth_date FROM members
-        WHERE birth_date IS NOT NULL AND birth_date <> '' AND COALESCE(member_type, 'member') = 'member'
+    meetings_rows = conn.execute("""
+        SELECT id, title, department, meeting_date FROM meetings
+        WHERE meeting_date IS NOT NULL AND meeting_date <> ''
     """).fetchall()
+    is_admin = session.get("admin_role") == "admin"
+    members = []
+    if is_admin:
+        members = conn.execute("""
+            SELECT id, full_name_en, birth_date FROM members
+            WHERE birth_date IS NOT NULL AND birth_date <> '' AND COALESCE(member_type, 'member') = 'member'
+        """).fetchall()
     conn.close()
 
     items_by_day = {}
@@ -484,6 +818,9 @@ def calendar_view():
         add_item(e["event_date"], {"type": "event", "title": e["name"], "url": url_for("event_attendees", event_id=e["id"])})
     for s in sessions:
         add_item(s["session_date"], {"type": "session", "title": f'{s["event_name"]} — {s["name"]}', "url": url_for("session_attendees", session_id=s["id"])})
+    for mt in meetings_rows:
+        title = f'{mt["department"]} — {mt["title"]}' if mt["department"] else mt["title"]
+        add_item(mt["meeting_date"], {"type": "meeting", "title": title, "url": url_for("meeting_detail", meeting_id=mt["id"])})
     for m in members:
         parts = (m["birth_date"] or "").split("-")
         if len(parts) == 3:
@@ -519,7 +856,7 @@ def calendar_view():
 
 
 @app.route("/active-members")
-@login_required
+@admin_required
 def active_members():
     q = request.args.get("q", "").strip()
     conn = get_db()
@@ -603,7 +940,7 @@ def session_attendees(session_id):
     return render_template("session_attendees.html", session_row=session_row, attendees=attendees, q=q)
 
 @app.route("/members")
-@login_required
+@admin_required
 def members():
     q = request.args.get("q", "").strip()
     view_type = "guest" if request.args.get("type") == "guest" else "member"
@@ -630,7 +967,7 @@ def members():
 
 
 @app.route("/members/export.csv")
-@login_required
+@admin_required
 def members_export():
     q = request.args.get("q", "").strip()
     view_type = "guest" if request.args.get("type") == "guest" else "member"
@@ -662,7 +999,7 @@ def members_export():
 
 
 @app.route("/members/new", methods=["GET","POST"])
-@login_required
+@admin_required
 def member_new():
     conn = get_db()
     events = conn.execute("SELECT * FROM events ORDER BY name").fetchall()
@@ -692,7 +1029,7 @@ def member_new():
     return render_template("member_form.html", member=None, events=events, sessions=sessions, selected_events=[], selected_sessions=[])
 
 @app.route("/members/<int:member_id>")
-@login_required
+@admin_required
 def member_detail(member_id):
     conn = get_db()
     member = conn.execute("SELECT * FROM members WHERE id=?", (member_id,)).fetchone()
@@ -711,7 +1048,7 @@ def member_detail(member_id):
     return render_template("member_detail.html", member=member, attended=attended)
 
 @app.route("/members/<int:member_id>/edit", methods=["GET","POST"])
-@login_required
+@admin_required
 def member_edit(member_id):
     conn = get_db()
     member = conn.execute("SELECT * FROM members WHERE id=?", (member_id,)).fetchone()
@@ -748,7 +1085,7 @@ def member_edit(member_id):
     return render_template("member_form.html", member=member, events=events, sessions=sessions, selected_events=selected_events, selected_sessions=selected_sessions)
 
 @app.route("/members/<int:member_id>/delete", methods=["POST"])
-@login_required
+@admin_required
 def member_delete(member_id):
     conn = get_db()
     conn.execute("DELETE FROM members WHERE id=?", (member_id,))
@@ -758,7 +1095,7 @@ def member_delete(member_id):
     return redirect(url_for("members"))
 
 @app.route("/members/<int:member_id>/promote", methods=["POST"])
-@login_required
+@admin_required
 def member_promote(member_id):
     conn = get_db()
     member = conn.execute("SELECT full_name_en FROM members WHERE id=?", (member_id,)).fetchone()
@@ -774,7 +1111,7 @@ def member_promote(member_id):
 
 
 @app.route("/members/bulk-promote", methods=["POST"])
-@login_required
+@admin_required
 def members_bulk_promote():
     ids = request.form.getlist("member_ids")
     conn = get_db()
@@ -787,7 +1124,7 @@ def members_bulk_promote():
 
 
 @app.route("/members/bulk-delete", methods=["POST"])
-@login_required
+@admin_required
 def members_bulk_delete():
     ids = request.form.getlist("member_ids")
     view_type = "guest" if request.args.get("type") == "guest" else "member"
@@ -835,7 +1172,7 @@ def match_column_to_field(header_text):
 
 
 @app.route("/members/import", methods=["GET", "POST"])
-@login_required
+@admin_required
 def member_import():
     if request.method == "POST":
         file = request.files.get("csv_file")
@@ -926,7 +1263,7 @@ def save_event_questions(conn, event_id):
 
 
 @app.route("/events/new", methods=["GET","POST"])
-@login_required
+@admin_required
 def event_new():
     if request.method == "POST":
         data = request.form
@@ -946,7 +1283,7 @@ def event_new():
     return render_template("event_form.html", event=None, questions=[])
 
 @app.route("/events/<int:event_id>/edit", methods=["GET","POST"])
-@login_required
+@admin_required
 def event_edit(event_id):
     conn = get_db()
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
@@ -974,7 +1311,7 @@ def event_edit(event_id):
     return render_template("event_form.html", event=event, questions=questions)
 
 @app.route("/events/<int:event_id>/delete", methods=["POST"])
-@login_required
+@admin_required
 def event_delete(event_id):
     conn = get_db()
     conn.execute("DELETE FROM events WHERE id=?", (event_id,))
@@ -984,7 +1321,7 @@ def event_delete(event_id):
     return redirect(url_for("events"))
 
 @app.route("/attendance")
-@login_required
+@admin_required
 def attendance():
     q = request.args.get("q", "").strip()
     conn = get_db()
@@ -1007,7 +1344,7 @@ def attendance():
 
 
 @app.route("/attendance/export.csv")
-@login_required
+@admin_required
 def attendance_export():
     q = request.args.get("q", "").strip()
     conn = get_db()
@@ -1036,7 +1373,7 @@ def attendance_export():
 
 
 @app.route("/surveys")
-@login_required
+@admin_required
 def surveys():
     q = request.args.get("q", "").strip()
     conn = get_db()
@@ -1056,7 +1393,7 @@ def surveys():
 
 
 @app.route("/surveys/export.csv")
-@login_required
+@admin_required
 def surveys_export():
     q = request.args.get("q", "").strip()
     conn = get_db()
@@ -1083,7 +1420,7 @@ def surveys_export():
 
 
 @app.route("/surveys/<int:survey_id>")
-@login_required
+@admin_required
 def survey_detail(survey_id):
     conn = get_db()
     survey = conn.execute("SELECT * FROM surveys WHERE id=?", (survey_id,)).fetchone()
@@ -1095,7 +1432,7 @@ def survey_detail(survey_id):
 
 
 @app.route("/survey-forms")
-@login_required
+@admin_required
 def survey_forms():
     conn = get_db()
     rows = conn.execute("""
@@ -1109,7 +1446,7 @@ def survey_forms():
     return render_template("survey_forms.html", survey_forms=rows)
 
 @app.route("/survey-forms/new", methods=["GET", "POST"])
-@login_required
+@admin_required
 def survey_form_new():
     if request.method == "POST":
         data = request.form
@@ -1136,7 +1473,7 @@ def survey_form_new():
     return render_template("survey_form_builder.html", survey_form=None, questions=[])
 
 @app.route("/survey-forms/<int:form_id>/edit", methods=["GET", "POST"])
-@login_required
+@admin_required
 def survey_form_edit(form_id):
     conn = get_db()
     survey_form = conn.execute("SELECT * FROM survey_forms WHERE id=?", (form_id,)).fetchone()
@@ -1168,7 +1505,7 @@ def survey_form_edit(form_id):
     return render_template("survey_form_builder.html", survey_form=survey_form, questions=questions)
 
 @app.route("/survey-forms/<int:form_id>/delete", methods=["POST"])
-@login_required
+@admin_required
 def survey_form_delete(form_id):
     conn = get_db()
     conn.execute("DELETE FROM survey_forms WHERE id=?", (form_id,))
@@ -1178,7 +1515,7 @@ def survey_form_delete(form_id):
     return redirect(url_for("survey_forms"))
 
 @app.route("/survey-forms/<int:form_id>/source")
-@login_required
+@admin_required
 def survey_source(form_id):
     conn = get_db()
     form = conn.execute("SELECT * FROM survey_forms WHERE id=?", (form_id,)).fetchone()
@@ -1190,7 +1527,7 @@ def survey_source(form_id):
 
 
 @app.route("/survey-forms/<int:form_id>/responses/new", methods=["GET", "POST"])
-@login_required
+@admin_required
 def survey_response_new(form_id):
     conn = get_db()
     survey_form = conn.execute("SELECT * FROM survey_forms WHERE id=?", (form_id,)).fetchone()
@@ -1242,7 +1579,7 @@ def survey_response_new(form_id):
     return render_template("survey_response_form.html", survey_form=survey_form, questions=questions)
 
 @app.route("/surveys/<int:survey_id>/delete", methods=["POST"])
-@login_required
+@admin_required
 def survey_response_delete(survey_id):
     conn = get_db()
     conn.execute("DELETE FROM surveys WHERE id=?", (survey_id,))
@@ -1253,7 +1590,7 @@ def survey_response_delete(survey_id):
 
 
 @app.route("/signup-forms")
-@login_required
+@admin_required
 def signup_forms():
     conn = get_db()
     rows = conn.execute("""
@@ -1269,7 +1606,7 @@ def signup_forms():
 
 
 @app.route("/signup-forms/new", methods=["GET", "POST"])
-@login_required
+@admin_required
 def signup_form_new():
     conn = get_db()
     events_list = conn.execute("SELECT * FROM events ORDER BY name").fetchall()
@@ -1300,7 +1637,7 @@ def signup_form_new():
 
 
 @app.route("/signup-forms/<int:form_id>/edit", methods=["GET", "POST"])
-@login_required
+@admin_required
 def signup_form_edit(form_id):
     conn = get_db()
     signup_form = conn.execute("SELECT * FROM signup_forms WHERE id=?", (form_id,)).fetchone()
@@ -1335,7 +1672,7 @@ def signup_form_edit(form_id):
 
 
 @app.route("/signup-forms/<int:form_id>/delete", methods=["POST"])
-@login_required
+@admin_required
 def signup_form_delete(form_id):
     conn = get_db()
     conn.execute("DELETE FROM signup_forms WHERE id=?", (form_id,))
@@ -1346,7 +1683,7 @@ def signup_form_delete(form_id):
 
 
 @app.route("/events/<int:event_id>/signup-responses")
-@login_required
+@admin_required
 def event_signup_responses(event_id):
     conn = get_db()
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
@@ -1523,7 +1860,7 @@ def public_signup_questions(slug, token):
 
 
 @app.route("/events/<int:event_id>/sessions/new", methods=["GET", "POST"])
-@login_required
+@admin_required
 def session_new(event_id):
     conn = get_db()
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
@@ -1591,7 +1928,7 @@ def event_sessions(event_id):
     return render_template("event_sessions.html", event=event, sessions=sessions, attendees=attendees, q=q)
 
 @app.route("/sessions/<int:session_id>/edit", methods=["GET", "POST"])
-@login_required
+@admin_required
 def session_edit(session_id):
     conn = get_db()
     session_row = conn.execute("SELECT * FROM sessions WHERE id=?", (session_id,)).fetchone()
@@ -1616,7 +1953,7 @@ def session_edit(session_id):
     return render_template("session_form.html", event=event, session_row=session_row)
 
 @app.route("/sessions/<int:session_id>/delete", methods=["POST"])
-@login_required
+@admin_required
 def session_delete(session_id):
     conn = get_db()
     session_row = conn.execute("SELECT * FROM sessions WHERE id=?", (session_id,)).fetchone()
@@ -1632,7 +1969,7 @@ def session_delete(session_id):
     return redirect(url_for("event_sessions", event_id=event_id))
 
 @app.route("/events/<int:event_id>/attendees/add", methods=["GET", "POST"])
-@login_required
+@admin_required
 def event_attendee_add(event_id):
     conn = get_db()
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
@@ -1712,7 +2049,7 @@ def take_attendance(event_id, session_id):
 
 
 @app.route("/attendance/<int:attendance_id>/delete", methods=["POST"])
-@login_required
+@admin_required
 def attendance_delete(attendance_id):
     conn = get_db()
     row = conn.execute("SELECT event_id FROM attendance WHERE id=?", (attendance_id,)).fetchone()

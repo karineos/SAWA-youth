@@ -136,3 +136,50 @@ CREATE TABLE IF NOT EXISTS signup_question_answers (
     event_question_id INTEGER NOT NULL REFERENCES event_questions(id) ON DELETE CASCADE,
     answer_text TEXT
 );
+
+CREATE TABLE IF NOT EXISTS meetings (
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    department TEXT,
+    meeting_date TEXT,
+    meeting_time TEXT,
+    location TEXT,
+    notes TEXT,
+    created_by INTEGER REFERENCES admins(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS meeting_minutes (
+    id SERIAL PRIMARY KEY,
+    meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_by INTEGER REFERENCES admins(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS businesses (
+    id SERIAL PRIMARY KEY,
+    business_name TEXT NOT NULL,
+    owner_name TEXT,
+    phone TEXT,
+    sector TEXT,
+    location TEXT,
+    date_opened TEXT,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS business_assessments (
+    id SERIAL PRIMARY KEY,
+    business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+    assessment_date TEXT,
+    monthly_income TEXT,
+    monthly_profit TEXT,
+    monthly_expenses TEXT,
+    employees_count TEXT,
+    challenges TEXT,
+    support_needed TEXT,
+    notes TEXT,
+    assessed_by INTEGER REFERENCES admins(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

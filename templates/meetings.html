@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Meetings</h1>
+    <p class="label">Scheduled meetings across all departments and programs. Meetings also show up on the Calendar.</p>
+  </div>
+  {% if session.get('admin_role') == 'admin' %}
+  <a class="btn" href="{{ url_for('meeting_new') }}">+ Schedule Meeting</a>
+  {% endif %}
+</div>
+
+<form class="search"><input name="q" placeholder="Search by title, department, or location..." value="{{ q }}"><button class="btn">Search</button></form>
+
+<div class="card scroll">
+  <table class="wide stack-table">
+    <tr><th>Title</th><th>Department</th><th>Date</th><th>Time</th><th>Location</th><th>MOMs</th><th>Actions</th></tr>
+    {% for m in meetings %}
+    <tr>
+      <td data-label="Title"><b>{{ m.title }}</b></td>
+      <td data-label="Department">{% if m.department %}<span class="pill">{{ m.department }}</span>{% endif %}</td>
+      <td data-label="Date">{{ m.meeting_date or '' }}</td>
+      <td data-label="Time">{{ m.meeting_time or '' }}</td>
+      <td data-label="Location">{{ m.location or '' }}</td>
+      <td data-label="MOMs">{{ m.minutes_count }}</td>
+      <td class="actions" data-label="Actions">
+        <a class="btn secondary" href="{{ url_for('meeting_detail', meeting_id=m.id) }}">Open</a>
+        {% if session.get('admin_role') == 'admin' %}
+        <a class="btn secondary" href="{{ url_for('meeting_edit', meeting_id=m.id) }}">Edit</a>
+        <form method="post" action="{{ url_for('meeting_delete', meeting_id=m.id) }}" onsubmit="return confirm('Delete this meeting? Its minutes will also be removed.')">
+          <button class="btn danger">Delete</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7"><div class="empty-state">{% if q %}No meetings match "{{ q }}".{% else %}No meetings scheduled yet.{% endif %}</div></td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

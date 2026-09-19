@@ -26,7 +26,7 @@
       <td data-label="City">{{ m.city or '' }}</td>
       <td data-label="Studied Where">{{ m.studied_where or '' }}</td>
       <td data-label="Work / Field">{{ m.work or m.field_of_study or '' }}</td>
-      <td data-label="Profile"><a class="btn secondary" href="{{ url_for('member_detail', member_id=m.id) }}">Open</a></td>
+      <td data-label="Profile">{% if session.get('admin_role') == 'admin' %}<a class="btn secondary" href="{{ url_for('member_detail', member_id=m.id) }}">Open</a>{% endif %}</td>
     </tr>
     {% else %}
     <tr><td colspan="7"><div class="empty-state">{% if q %}No attendees match "{{ q }}".{% else %}No attendees yet.{% endif %}</div></td></tr>

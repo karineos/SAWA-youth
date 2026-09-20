@@ -445,10 +445,14 @@ def admin_delete(admin_id):
         flash("You cannot delete your own admin account while logged in.")
         return redirect(url_for("admins"))
     conn = get_db()
-    conn.execute("DELETE FROM admins WHERE id=?", (admin_id,))
-    conn.commit()
-    conn.close()
-    flash("Admin deleted successfully.")
+    try:
+        conn.execute("DELETE FROM admins WHERE id=?", (admin_id,))
+        conn.commit()
+        flash("Admin deleted successfully.")
+    except (sqlite3.IntegrityError, psycopg2.IntegrityError):
+        flash("Couldn't delete this admin yet — a database update needs to run first (fix_admin_delete_constraints_migration.sql). Ask whoever manages the database to run it, then try again.")
+    finally:
+        conn.close()
     return redirect(url_for("admins"))
 
 MEETING_DEPARTMENTS = ["Technology & Tamkeen", "Sawa Youth", "Ghassan Jisr Community", "SAWA"]

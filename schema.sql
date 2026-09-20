@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS meetings (
     meeting_time TEXT,
     location TEXT,
     notes TEXT,
-    created_by INTEGER REFERENCES admins(id),
+    created_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS meeting_minutes (
     id SERIAL PRIMARY KEY,
     meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
-    created_by INTEGER REFERENCES admins(id),
+    created_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -180,6 +180,6 @@ CREATE TABLE IF NOT EXISTS business_assessments (
     challenges TEXT,
     support_needed TEXT,
     notes TEXT,
-    assessed_by INTEGER REFERENCES admins(id),
+    assessed_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

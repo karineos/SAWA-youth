@@ -297,6 +297,16 @@ def add_attendance(conn, member_id, event_id, session_id=None, status="Present")
             )
 
 
+def log_activity(conn, action, entity_type, entity_id=None, entity_label=None, details=None):
+    """Record one row in the activity log for a data-changing action. Stores
+    a snapshot of the admin's name (not just their id) so the log still
+    reads correctly even if that admin account is later deleted."""
+    conn.execute(
+        "INSERT INTO activity_log(admin_id, admin_name, action, entity_type, entity_id, entity_label, details) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (session.get("admin_id"), session.get("admin_name"), action, entity_type, entity_id, entity_label, details)
+    )
+
+
 def login_required(view):
     @wraps(view)
     def wrapped_view(*args, **kwargs):
@@ -390,10 +400,12 @@ def admins():
             flash("Username and password are required.")
         else:
             try:
-                conn.execute(
+                cur = conn.execute(
                     "INSERT INTO admins(username, password_hash, full_name, role) VALUES (?, ?, ?, ?) RETURNING id",
                     (username, generate_password_hash(password, method="pbkdf2:sha256"), full_name, role)
                 )
+                new_id = get_new_id(cur)
+                log_activity(conn, "created", "admin", new_id, full_name or username, f"role: {role}")
                 conn.commit()
                 flash("Admin added successfully.")
             except (sqlite3.IntegrityError, psycopg2.IntegrityError):
@@ -427,6 +439,8 @@ def admin_edit(admin_id):
             )
         else:
             conn.execute("UPDATE admins SET full_name=?, role=? WHERE id=?", (full_name, role, admin_id))
+        details = f"role: {admin['role']} -> {role}" if admin["role"] != role else None
+        log_activity(conn, "updated", "admin", admin_id, full_name or admin["username"], details)
         conn.commit()
         conn.close()
         if admin_id == session.get("admin_id"):
@@ -446,7 +460,10 @@ def admin_delete(admin_id):
         return redirect(url_for("admins"))
     conn = get_db()
     try:
+        target = conn.execute("SELECT full_name, username FROM admins WHERE id=?", (admin_id,)).fetchone()
         conn.execute("DELETE FROM admins WHERE id=?", (admin_id,))
+        if target:
+            log_activity(conn, "deleted", "admin", admin_id, target["full_name"] or target["username"])
         conn.commit()
         flash("Admin deleted successfully.")
     except (sqlite3.IntegrityError, psycopg2.IntegrityError):
@@ -501,11 +518,12 @@ def meeting_new():
             conn.close()
             flash("Meeting title is required.")
             return render_template("meeting_form.html", meeting=None, departments=departments)
-        conn.execute(
-            "INSERT INTO meetings(title, department, meeting_date, meeting_time, location, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        cur = conn.execute(
+            "INSERT INTO meetings(title, department, meeting_date, meeting_time, location, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
             (title, data.get("department", "").strip(), data.get("meeting_date"), data.get("meeting_time"),
              data.get("location", "").strip(), data.get("notes", "").strip(), session.get("admin_id"))
         )
+        log_activity(conn, "created", "meeting", get_new_id(cur), title)
         conn.commit()
         conn.close()
         flash("Meeting scheduled successfully.")
@@ -536,6 +554,7 @@ def meeting_edit(meeting_id):
             (title, data.get("department", "").strip(), data.get("meeting_date"), data.get("meeting_time"),
              data.get("location", "").strip(), data.get("notes", "").strip(), meeting_id)
         )
+        log_activity(conn, "updated", "meeting", meeting_id, title)
         conn.commit()
         conn.close()
         flash("Meeting updated successfully.")
@@ -548,7 +567,10 @@ def meeting_edit(meeting_id):
 @admin_required
 def meeting_delete(meeting_id):
     conn = get_db()
+    meeting = conn.execute("SELECT title FROM meetings WHERE id=?", (meeting_id,)).fetchone()
     conn.execute("DELETE FROM meetings WHERE id=?", (meeting_id,))
+    if meeting:
+        log_activity(conn, "deleted", "meeting", meeting_id, meeting["title"])
     conn.commit()
     conn.close()
     flash("Meeting deleted successfully.")
@@ -580,7 +602,7 @@ def meeting_detail(meeting_id):
 def meeting_add_minutes(meeting_id):
     content = request.form.get("content", "").strip()
     conn = get_db()
-    meeting = conn.execute("SELECT id FROM meetings WHERE id=?", (meeting_id,)).fetchone()
+    meeting = conn.execute("SELECT id, title FROM meetings WHERE id=?", (meeting_id,)).fetchone()
     if not meeting:
         conn.close()
         flash("Meeting not found.")
@@ -589,10 +611,11 @@ def meeting_add_minutes(meeting_id):
         conn.close()
         flash("Minutes can't be empty.")
         return redirect(url_for("meeting_detail", meeting_id=meeting_id))
-    conn.execute(
-        "INSERT INTO meeting_minutes(meeting_id, content, created_by) VALUES (?, ?, ?)",
+    cur = conn.execute(
+        "INSERT INTO meeting_minutes(meeting_id, content, created_by) VALUES (?, ?, ?) RETURNING id",
         (meeting_id, content, session.get("admin_id"))
     )
+    log_activity(conn, "added", "meeting_minutes", get_new_id(cur), meeting["title"], content[:120])
     conn.commit()
     conn.close()
     flash("Minutes added successfully.")
@@ -610,6 +633,7 @@ def meeting_minutes_delete(minutes_id):
         return redirect(url_for("meetings"))
     meeting_id = row["meeting_id"]
     conn.execute("DELETE FROM meeting_minutes WHERE id=?", (minutes_id,))
+    log_activity(conn, "deleted", "meeting_minutes", minutes_id)
     conn.commit()
     conn.close()
     flash("Minutes deleted.")
@@ -655,10 +679,11 @@ def business_new():
             flash("Business name is required.")
             return render_template("business_form.html", business=None)
         conn = get_db()
-        conn.execute(
-            f"INSERT INTO businesses({', '.join(BUSINESS_FIELDS)}) VALUES ({', '.join(['?'] * len(BUSINESS_FIELDS))})",
+        cur = conn.execute(
+            f"INSERT INTO businesses({', '.join(BUSINESS_FIELDS)}) VALUES ({', '.join(['?'] * len(BUSINESS_FIELDS))}) RETURNING id",
             tuple(data.get(f, "").strip() for f in BUSINESS_FIELDS)
         )
+        log_activity(conn, "created", "business", get_new_id(cur), name)
         conn.commit()
         conn.close()
         flash("Business added successfully.")
@@ -685,6 +710,7 @@ def business_edit(business_id):
         set_clause = ", ".join(f"{f}=?" for f in BUSINESS_FIELDS)
         conn.execute(f"UPDATE businesses SET {set_clause} WHERE id=?",
                      tuple(data.get(f, "").strip() for f in BUSINESS_FIELDS) + (business_id,))
+        log_activity(conn, "updated", "business", business_id, name)
         conn.commit()
         conn.close()
         flash("Business updated successfully.")
@@ -697,7 +723,10 @@ def business_edit(business_id):
 @admin_required
 def business_delete(business_id):
     conn = get_db()
+    business = conn.execute("SELECT business_name FROM businesses WHERE id=?", (business_id,)).fetchone()
     conn.execute("DELETE FROM businesses WHERE id=?", (business_id,))
+    if business:
+        log_activity(conn, "deleted", "business", business_id, business["business_name"])
     conn.commit()
     conn.close()
     flash("Business deleted successfully.")
@@ -734,10 +763,11 @@ def business_assessment_new(business_id):
         data = request.form
         columns = ASSESSMENT_FIELDS + ["business_id", "assessed_by"]
         values = [data.get(f, "").strip() for f in ASSESSMENT_FIELDS] + [business_id, session.get("admin_id")]
-        conn.execute(
-            f"INSERT INTO business_assessments({', '.join(columns)}) VALUES ({', '.join(['?'] * len(columns))})",
+        cur = conn.execute(
+            f"INSERT INTO business_assessments({', '.join(columns)}) VALUES ({', '.join(['?'] * len(columns))}) RETURNING id",
             tuple(values)
         )
+        log_activity(conn, "created", "business_assessment", get_new_id(cur), business["business_name"])
         conn.commit()
         conn.close()
         flash("Assessment added successfully.")
@@ -757,6 +787,7 @@ def business_assessment_delete(assessment_id):
         return redirect(url_for("businesses"))
     business_id = row["business_id"]
     conn.execute("DELETE FROM business_assessments WHERE id=?", (assessment_id,))
+    log_activity(conn, "deleted", "business_assessment", assessment_id)
     conn.commit()
     conn.close()
     flash("Assessment deleted.")
@@ -1076,6 +1107,7 @@ def member_new():
             s = conn.execute("SELECT event_id FROM sessions WHERE id=?", (session_id,)).fetchone()
             if s:
                 add_attendance(conn, member_id, s["event_id"], session_id)
+        log_activity(conn, "created", "member", member_id, data.get("full_name_en", "").strip())
         conn.commit()
         conn.close()
         flash("Member added successfully.")
@@ -1132,6 +1164,7 @@ def member_edit(member_id):
             s = conn.execute("SELECT event_id FROM sessions WHERE id=?", (session_id,)).fetchone()
             if s:
                 add_attendance(conn, member_id, s["event_id"], session_id)
+        log_activity(conn, "updated", "member", member_id, data.get("full_name_en", "").strip())
         conn.commit()
         conn.close()
         flash("Member updated successfully.")
@@ -1143,7 +1176,10 @@ def member_edit(member_id):
 @admin_required
 def member_delete(member_id):
     conn = get_db()
+    member = conn.execute("SELECT full_name_en FROM members WHERE id=?", (member_id,)).fetchone()
     conn.execute("DELETE FROM members WHERE id=?", (member_id,))
+    if member:
+        log_activity(conn, "deleted", "member", member_id, member["full_name_en"])
     conn.commit()
     conn.close()
     flash("Member deleted successfully.")
@@ -1159,6 +1195,7 @@ def member_promote(member_id):
         flash("Member not found.")
         return redirect(url_for("members", type="guest"))
     conn.execute("UPDATE members SET member_type='member' WHERE id=?", (member_id,))
+    log_activity(conn, "promoted", "member", member_id, member["full_name_en"], "guest -> member")
     conn.commit()
     conn.close()
     flash(f"{member['full_name_en']} is now a full member.")
@@ -1172,6 +1209,7 @@ def members_bulk_promote():
     conn = get_db()
     for member_id in ids:
         conn.execute("UPDATE members SET member_type='member' WHERE id=?", (member_id,))
+    log_activity(conn, "bulk_promoted", "member", None, None, f"{len(ids)} guest(s) -> members")
     conn.commit()
     conn.close()
     flash(f"Added {len(ids)} guest(s) as members.")
@@ -1186,6 +1224,7 @@ def members_bulk_delete():
     conn = get_db()
     for member_id in ids:
         conn.execute("DELETE FROM members WHERE id=?", (member_id,))
+    log_activity(conn, "bulk_deleted", "member", None, None, f"{len(ids)} {view_type}(s)")
     conn.commit()
     conn.close()
     flash(f"Deleted {len(ids)} {view_type}(s).")
@@ -1278,6 +1317,7 @@ def member_import():
                     tuple(record.values())
                 )
                 created += 1
+        log_activity(conn, "imported", "member", None, None, f"{created} added, {updated} updated, {skipped} skipped")
         conn.commit()
         conn.close()
         flash(f"Import complete: {created} added, {updated} updated, {skipped} skipped (missing name).")
@@ -1331,6 +1371,7 @@ def event_new():
                      (None, name, data.get("event_date"), data.get("location"), data.get("event_type"), data.get("notes")))
         event_id = get_new_id(cur)
         save_event_questions(conn, event_id)
+        log_activity(conn, "created", "event", event_id, name)
         conn.commit()
         conn.close()
         flash("Event added successfully.")
@@ -1357,6 +1398,7 @@ def event_edit(event_id):
         conn.execute("UPDATE events SET name=?, event_date=?, location=?, event_type=?, notes=? WHERE id=?",
                      (name, data.get("event_date"), data.get("location"), data.get("event_type"), data.get("notes"), event_id))
         save_event_questions(conn, event_id)
+        log_activity(conn, "updated", "event", event_id, name)
         conn.commit()
         conn.close()
         flash("Event updated successfully.")
@@ -1369,7 +1411,10 @@ def event_edit(event_id):
 @admin_required
 def event_delete(event_id):
     conn = get_db()
+    event = conn.execute("SELECT name FROM events WHERE id=?", (event_id,)).fetchone()
     conn.execute("DELETE FROM events WHERE id=?", (event_id,))
+    if event:
+        log_activity(conn, "deleted", "event", event_id, event["name"])
     conn.commit()
     conn.close()
     flash("Event deleted successfully.")
@@ -1521,6 +1566,7 @@ def survey_form_new():
                 INSERT INTO survey_questions(survey_form_id, question_text, field_key, field_type, sort_order)
                 VALUES (?, ?, ?, ?, ?)
             """, (form_id, q, "custom_" + str(i), field_types[i-1] if i-1 < len(field_types) else "text", i))
+        log_activity(conn, "created", "survey_form", form_id, data.get("title", ""))
         conn.commit()
         conn.close()
         flash("Survey created successfully.")
@@ -1551,6 +1597,7 @@ def survey_form_edit(form_id):
                 INSERT INTO survey_questions(survey_form_id, question_text, field_key, field_type, sort_order)
                 VALUES (?, ?, ?, ?, ?)
             """, (form_id, q, "custom_" + str(i), field_types[i-1] if i-1 < len(field_types) else "text", i))
+        log_activity(conn, "updated", "survey_form", form_id, data.get("title", ""))
         conn.commit()
         conn.close()
         flash("Survey updated successfully.")
@@ -1563,7 +1610,10 @@ def survey_form_edit(form_id):
 @admin_required
 def survey_form_delete(form_id):
     conn = get_db()
+    survey_form = conn.execute("SELECT title FROM survey_forms WHERE id=?", (form_id,)).fetchone()
     conn.execute("DELETE FROM survey_forms WHERE id=?", (form_id,))
+    if survey_form:
+        log_activity(conn, "deleted", "survey_form", form_id, survey_form["title"])
     conn.commit()
     conn.close()
     flash("Survey form deleted. Existing responses were kept.")
@@ -1625,6 +1675,7 @@ def survey_response_new(form_id):
             mapped["current_status"], mapped["university_school"], mapped["field_work"], mapped["english_level"],
             mapped["interest_reason"], mapped["attended_before"], mapped["learn_most"], mapped["heard_from"], raw_answers
         ))
+        log_activity(conn, "created", "survey_response", None, mapped["full_name"] or survey_form["title"])
         conn.commit()
         conn.close()
         flash("Survey response added successfully.")
@@ -1637,7 +1688,10 @@ def survey_response_new(form_id):
 @admin_required
 def survey_response_delete(survey_id):
     conn = get_db()
+    survey = conn.execute("SELECT full_name FROM surveys WHERE id=?", (survey_id,)).fetchone()
     conn.execute("DELETE FROM surveys WHERE id=?", (survey_id,))
+    if survey:
+        log_activity(conn, "deleted", "survey_response", survey_id, survey["full_name"])
     conn.commit()
     conn.close()
     flash("Survey response deleted successfully.")
@@ -1675,10 +1729,11 @@ def signup_form_new():
             flash("Title and event are required.")
         else:
             slug = generate_unique_slug(conn)
-            conn.execute(
-                "INSERT INTO signup_forms(event_id, title, description, fields, slug, is_active) VALUES (?, ?, ?, ?, ?, ?)",
+            cur = conn.execute(
+                "INSERT INTO signup_forms(event_id, title, description, fields, slug, is_active) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
                 (event_id, title, description, json.dumps(selected_fields), slug, is_active)
             )
+            log_activity(conn, "created", "signup_form", get_new_id(cur), title)
             conn.commit()
             conn.close()
             flash("Sign-up form created successfully.")
@@ -1714,6 +1769,7 @@ def signup_form_edit(form_id):
                 "UPDATE signup_forms SET event_id=?, title=?, description=?, fields=?, is_active=? WHERE id=?",
                 (event_id, title, description, json.dumps(selected_fields), is_active, form_id)
             )
+            log_activity(conn, "updated", "signup_form", form_id, title)
             conn.commit()
             conn.close()
             flash("Sign-up form updated successfully.")
@@ -1730,7 +1786,10 @@ def signup_form_edit(form_id):
 @admin_required
 def signup_form_delete(form_id):
     conn = get_db()
+    signup_form = conn.execute("SELECT title FROM signup_forms WHERE id=?", (form_id,)).fetchone()
     conn.execute("DELETE FROM signup_forms WHERE id=?", (form_id,))
+    if signup_form:
+        log_activity(conn, "deleted", "signup_form", form_id, signup_form["title"])
     conn.commit()
     conn.close()
     flash("Sign-up form deleted. Existing members and attendance records were kept.")
@@ -1931,10 +1990,11 @@ def session_new(event_id):
         if not name:
             flash("Session name is required.")
         else:
-            conn.execute(
-                "INSERT INTO sessions(event_id, name, session_date, notes) VALUES (?, ?, ?, ?)",
+            cur = conn.execute(
+                "INSERT INTO sessions(event_id, name, session_date, notes) VALUES (?, ?, ?, ?) RETURNING id",
                 (event_id, name, session_date, notes)
             )
+            log_activity(conn, "created", "session", get_new_id(cur), f'{event["name"]} — {name}')
             conn.commit()
             conn.close()
             flash("Session added successfully.")
@@ -1999,6 +2059,7 @@ def session_edit(session_id):
             "UPDATE sessions SET name=?, session_date=?, notes=? WHERE id=?",
             (request.form.get("name", ""), request.form.get("session_date", ""), request.form.get("notes", ""), session_id)
         )
+        log_activity(conn, "updated", "session", session_id, f'{event["name"]} — {request.form.get("name", "")}')
         conn.commit()
         conn.close()
         flash("Session updated successfully.")
@@ -2018,6 +2079,7 @@ def session_delete(session_id):
         return redirect(url_for("events"))
     event_id = session_row["event_id"]
     conn.execute("DELETE FROM sessions WHERE id=?", (session_id,))
+    log_activity(conn, "deleted", "session", session_id, session_row["name"])
     conn.commit()
     conn.close()
     flash("Session deleted successfully.")
@@ -2050,6 +2112,8 @@ def event_attendee_add(event_id):
             return redirect(url_for("event_attendee_add", event_id=event_id))
 
         add_attendance(conn, member_id, event_id, session_id)
+        member = conn.execute("SELECT full_name_en FROM members WHERE id=?", (member_id,)).fetchone()
+        log_activity(conn, "added_attendee", "event", event_id, event["name"], member["full_name_en"] if member else None)
         conn.commit()
         conn.close()
         flash("Attendance saved successfully.")
@@ -2085,6 +2149,8 @@ def take_attendance(event_id, session_id):
             conn.execute("DELETE FROM attendance WHERE event_id=? AND session_id IS NULL", (event_id,))
         for member_id in checked_ids:
             add_attendance(conn, member_id, event_id, session_id, status="Present")
+        label = f'{event["name"]} — {session_row["name"]}' if session_row else event["name"]
+        log_activity(conn, "took_attendance", "event", event_id, label, f"{len(checked_ids)} present")
         conn.commit()
         conn.close()
         flash("Attendance saved successfully.")
@@ -2114,10 +2180,31 @@ def attendance_delete(attendance_id):
         return redirect(url_for("events"))
     event_id = row["event_id"]
     conn.execute("DELETE FROM attendance WHERE id=?", (attendance_id,))
+    log_activity(conn, "deleted", "attendance", attendance_id)
     conn.commit()
     conn.close()
     flash("Attendance record removed.")
     return redirect(url_for("event_sessions", event_id=event_id))
+
+
+@app.route("/activity-log")
+@owner_required
+def activity_log():
+    q = request.args.get("q", "").strip()
+    conn = get_db()
+    where = ""
+    params = []
+    if q:
+        where = "WHERE admin_name LIKE ? OR action LIKE ? OR entity_type LIKE ? OR entity_label LIKE ? OR details LIKE ?"
+        params = [f"%{q}%"] * 5
+    rows = conn.execute(f"""
+        SELECT * FROM activity_log
+        {where}
+        ORDER BY created_at DESC, id DESC
+        LIMIT 300
+    """, params).fetchall()
+    conn.close()
+    return render_template("activity_log.html", entries=rows, q=q)
 
 
 if __name__ == "__main__":

@@ -55,6 +55,7 @@
         {% if session.get('admin_role') == 'owner' %}
         <p class="nav-heading">Admin</p>
         <a class="{{ 'active' if request.endpoint in ['admins','admin_edit'] }}" href="{{ url_for('admins') }}">{{ icons.icon('shield') }}<span>Admins</span></a>
+        <a class="{{ 'active' if request.endpoint == 'activity_log' }}" href="{{ url_for('activity_log') }}">{{ icons.icon('list') }}<span>Activity Log</span></a>
         {% endif %}
       </nav>
 

@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Activity Log</h1>
+    <p class="label">A record of who changed what, when — visible to Owners only. Showing the most recent 300 entries.</p>
+  </div>
+</div>
+
+<form class="search"><input name="q" placeholder="Search by person, action, or item..." value="{{ q }}"><button class="btn">Search</button></form>
+
+<div class="card scroll">
+  <table class="wide stack-table">
+    <tr><th>When</th><th>Who</th><th>Action</th><th>What</th><th>Details</th></tr>
+    {% for e in entries %}
+    <tr>
+      <td data-label="When">{{ e.created_at }}</td>
+      <td data-label="Who">{{ e.admin_name or 'Unknown' }}</td>
+      <td data-label="Action"><span class="pill">{{ e.action.replace('_', ' ')|capitalize }}</span></td>
+      <td data-label="What">{{ e.entity_type.replace('_', ' ')|capitalize }}{% if e.entity_label %}: {{ e.entity_label }}{% endif %}</td>
+      <td data-label="Details">{{ e.details or '' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5"><div class="empty-state">{% if q %}No activity matches "{{ q }}".{% else %}No activity recorded yet.{% endif %}</div></td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

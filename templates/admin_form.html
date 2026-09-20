@@ -15,8 +15,9 @@
     <div>
       <label>Role</label>
       <select name="role">
+        <option value="owner" {% if admin.role == 'owner' %}selected{% endif %}>Owner</option>
         <option value="admin" {% if admin.role == 'admin' %}selected{% endif %}>Admin</option>
-        <option value="contributor" {% if admin.role != 'admin' %}selected{% endif %}>Contributor</option>
+        <option value="contributor" {% if admin.role == 'contributor' %}selected{% endif %}>Contributor</option>
       </select>
     </div>
     <div>

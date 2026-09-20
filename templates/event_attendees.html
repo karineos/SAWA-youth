@@ -7,7 +7,7 @@
   </div>
   <div class="actions">
     <a class="btn secondary" href="{{ url_for('events') }}">Back to Events</a>
-    {% if session.get('admin_role') == 'admin' %}
+    {% if session.get('admin_role') in ['admin', 'owner'] %}
     <a class="btn secondary" href="{{ url_for('attendance', q=event.name) }}">View Raw Attendance</a>
     {% endif %}
     <a class="btn" href="{{ url_for('take_attendance', event_id=event.id) }}">Take Attendance</a>
@@ -49,7 +49,7 @@
       <td data-label="Studied Where">{{ m.studied_where or '' }}</td>
       <td data-label="Work / Field">{{ m.work or m.field_of_study or '' }}</td>
       <td data-label="Sessions / Attendance">{{ m.session_names or m.attendance_count }}</td>
-      <td data-label="Profile">{% if session.get('admin_role') == 'admin' %}<a class="btn secondary" href="{{ url_for('member_detail', member_id=m.id) }}">Open</a>{% endif %}</td>
+      <td data-label="Profile">{% if session.get('admin_role') in ['admin', 'owner'] %}<a class="btn secondary" href="{{ url_for('member_detail', member_id=m.id) }}">Open</a>{% endif %}</td>
     </tr>
     {% else %}
     <tr><td colspan="8"><div class="empty-state">{% if q %}No attendees match "{{ q }}".{% else %}No attendees yet.{% endif %}</div></td></tr>

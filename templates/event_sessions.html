@@ -7,7 +7,7 @@
   </div>
   <div class="actions">
     <a class="btn" href="{{ url_for('take_attendance', event_id=event.id) }}">Take Attendance (Full Event)</a>
-    {% if session.get('admin_role') == 'admin' %}
+    {% if session.get('admin_role') in ['admin', 'owner'] %}
     <a class="btn secondary" href="{{ url_for('session_new', event_id=event.id) }}">+ Add Session</a>
     {% endif %}
     <a class="btn secondary" href="{{ url_for('events') }}">Back to Events</a>
@@ -25,7 +25,7 @@
       <td data-label="Attendees">{{ s.attendance_count }}</td>
       <td class="actions" data-label="Actions">
         <a class="btn" href="{{ url_for('take_attendance', session_id=s.id) }}">Take Attendance</a>
-        {% if session.get('admin_role') == 'admin' %}
+        {% if session.get('admin_role') in ['admin', 'owner'] %}
         <a class="btn secondary" href="{{ url_for('session_edit', session_id=s.id) }}">Edit</a>
         <form method="post" action="{{ url_for('session_delete', session_id=s.id) }}" onsubmit="return confirm('Delete this session? Attendance for this session will also be removed.')">
           <button class="btn danger">Delete</button>
@@ -54,7 +54,7 @@
     {% for a in attendees %}
     <tr>
       <td data-label="Member">
-        {% if session.get('admin_role') == 'admin' %}
+        {% if session.get('admin_role') in ['admin', 'owner'] %}
         <a href="{{ url_for('member_detail', member_id=a.member_id) }}" class="person">
           <span class="avatar-sm">{{ (a.full_name_en or '?')[0]|upper }}</span>
           <span class="name-cell">{{ a.full_name_en }}{% if a.full_name_ar %}<span class="sub">{{ a.full_name_ar }}</span>{% endif %}</span>
@@ -70,7 +70,7 @@
       <td data-label="Session">{{ a.session_name or 'Full event' }}</td>
       <td data-label="Date">{{ a.session_date or '' }}</td>
       <td data-label="Actions">
-        {% if session.get('admin_role') == 'admin' %}
+        {% if session.get('admin_role') in ['admin', 'owner'] %}
         <form method="post" action="{{ url_for('attendance_delete', attendance_id=a.attendance_id) }}" onsubmit="return confirm('Remove this attendance record?')">
           <button class="btn danger">Remove</button>
         </form>

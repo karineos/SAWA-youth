@@ -5,7 +5,7 @@
     <h1>Events</h1>
     <p class="label">Open any event to see who attended. AI Workshop sessions have their own attendee lists.</p>
   </div>
-  {% if session.get('admin_role') == 'admin' %}
+  {% if session.get('admin_role') in ['admin', 'owner'] %}
   <a class="btn" href="{{ url_for('event_new') }}">+ Add Event</a>
   {% endif %}
 </div>
@@ -24,7 +24,7 @@
       <td class="actions" data-label="Actions">
         <a class="btn" href="{{ url_for('event_attendees', event_id=e.id) }}">Attendees</a>
         <a class="btn secondary" href="{{ url_for('event_sessions', event_id=e.id) }}">Sessions</a>
-        {% if session.get('admin_role') == 'admin' %}
+        {% if session.get('admin_role') in ['admin', 'owner'] %}
         <a class="btn secondary" href="{{ url_for('event_signup_responses', event_id=e.id) }}">Sign-Ups</a>
         <details class="row-menu">
           <summary class="btn secondary row-menu-trigger" title="More actions">⋯</summary>

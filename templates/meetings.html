@@ -5,7 +5,7 @@
     <h1>Meetings</h1>
     <p class="label">Scheduled meetings across all departments and programs. Meetings also show up on the Calendar.</p>
   </div>
-  {% if session.get('admin_role') == 'admin' %}
+  {% if session.get('admin_role') in ['admin', 'owner'] %}
   <a class="btn" href="{{ url_for('meeting_new') }}">+ Schedule Meeting</a>
   {% endif %}
 </div>
@@ -25,7 +25,7 @@
       <td data-label="MOMs">{{ m.minutes_count }}</td>
       <td class="actions" data-label="Actions">
         <a class="btn secondary" href="{{ url_for('meeting_detail', meeting_id=m.id) }}">Open</a>
-        {% if session.get('admin_role') == 'admin' %}
+        {% if session.get('admin_role') in ['admin', 'owner'] %}
         <a class="btn secondary" href="{{ url_for('meeting_edit', meeting_id=m.id) }}">Edit</a>
         <form method="post" action="{{ url_for('meeting_delete', meeting_id=m.id) }}" onsubmit="return confirm('Delete this meeting? Its minutes will also be removed.')">
           <button class="btn danger">Delete</button>

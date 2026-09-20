@@ -22,25 +22,25 @@
         <p class="nav-heading">Overview</p>
         <a class="{{ 'active' if request.endpoint == 'dashboard' }}" href="{{ url_for('dashboard') }}">{{ icons.icon('dashboard') }}<span>Dashboard</span></a>
         <a class="{{ 'active' if request.endpoint == 'calendar_view' }}" href="{{ url_for('calendar_view') }}">{{ icons.icon('calendar') }}<span>Calendar</span></a>
-        {% if session.get('admin_role') == 'admin' %}
+        {% if session.get('admin_role') in ['admin', 'owner'] %}
         <a class="{{ 'active' if request.endpoint == 'active_members' }}" href="{{ url_for('active_members') }}">{{ icons.icon('star') }}<span>Active Users</span></a>
         {% endif %}
 
-        {% if session.get('admin_role') == 'admin' %}
+        {% if session.get('admin_role') in ['admin', 'owner'] %}
         <p class="nav-heading">People</p>
         <a class="{{ 'active' if request.endpoint in ['members','member_new','member_detail','member_edit'] }}" href="{{ url_for('members') }}">{{ icons.icon('users') }}<span>Members</span></a>
         {% endif %}
 
         <p class="nav-heading">Programs</p>
         <a class="{{ 'active' if request.endpoint in ['events','event_new','event_edit','event_sessions','event_attendees','session_new','session_edit','session_attendees','event_attendee_add','event_signup_responses'] }}" href="{{ url_for('events') }}">{{ icons.icon('calendar') }}<span>Events</span></a>
-        {% if session.get('admin_role') == 'admin' %}
+        {% if session.get('admin_role') in ['admin', 'owner'] %}
         <a class="{{ 'active' if request.endpoint == 'attendance' }}" href="{{ url_for('attendance') }}">{{ icons.icon('check') }}<span>Attendance</span></a>
         {% endif %}
 
         <p class="nav-heading">Meetings</p>
         <a class="{{ 'active' if request.endpoint in ['meetings','meeting_new','meeting_edit','meeting_detail'] }}" href="{{ url_for('meetings') }}">{{ icons.icon('meeting') }}<span>Meetings &amp; MOMs</span></a>
 
-        {% if session.get('admin_role') == 'admin' %}
+        {% if session.get('admin_role') in ['admin', 'owner'] %}
         <p class="nav-heading">Small Businesses</p>
         <a class="{{ 'active' if request.endpoint in ['businesses','business_new','business_edit','business_detail','business_assessment_new'] }}" href="{{ url_for('businesses') }}">{{ icons.icon('briefcase') }}<span>Businesses</span></a>
 
@@ -50,9 +50,11 @@
         <p class="nav-heading">Surveys</p>
         <a class="{{ 'active' if request.endpoint in ['surveys','survey_detail'] }}" href="{{ url_for('surveys') }}">{{ icons.icon('clipboard') }}<span>Survey Responses</span></a>
         <a class="{{ 'active' if request.endpoint in ['survey_forms','survey_form_new','survey_form_edit','survey_response_new'] }}" href="{{ url_for('survey_forms') }}">{{ icons.icon('book') }}<span>Survey Library</span></a>
+        {% endif %}
 
+        {% if session.get('admin_role') == 'owner' %}
         <p class="nav-heading">Admin</p>
-        <a class="{{ 'active' if request.endpoint == 'admins' }}" href="{{ url_for('admins') }}">{{ icons.icon('shield') }}<span>Admins</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admins','admin_edit'] }}" href="{{ url_for('admins') }}">{{ icons.icon('shield') }}<span>Admins</span></a>
         {% endif %}
       </nav>
 
@@ -60,7 +62,7 @@
       <div class="sidebar-foot">
         <div class="sidebar-user">
           <span class="avatar">{{ (session.get('admin_name') or '?')[0]|upper }}</span>
-          <span class="sidebar-user-name">{{ session.get('admin_name') }}<small>{{ 'Admin' if session.get('admin_role') == 'admin' else 'Contributor' }}</small></span>
+          <span class="sidebar-user-name">{{ session.get('admin_name') }}<small>{{ {'owner': 'Owner', 'admin': 'Admin'}.get(session.get('admin_role'), 'Contributor') }}</small></span>
         </div>
         <a class="sidebar-logout" href="{{ url_for('logout') }}" title="Logout">{{ icons.icon('logout') }}</a>
       </div>

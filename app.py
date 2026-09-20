@@ -307,16 +307,31 @@ def login_required(view):
 
 
 def admin_required(view):
-    """Like login_required, but also requires the 'admin' role — Contributors
-    are limited to taking attendance and adding meeting minutes, so anything
-    that manages members, events, forms, meetings, businesses, or other
-    admins needs this instead of plain login_required."""
+    """Like login_required, but also requires the 'admin' or 'owner' role —
+    Contributors are limited to taking attendance and adding meeting
+    minutes, so anything that manages members, events, forms, meetings, or
+    businesses needs this instead of plain login_required. Owners can do
+    everything an admin can, plus manage admin accounts (see owner_required)."""
     @wraps(view)
     def wrapped_view(*args, **kwargs):
         if not session.get("admin_id"):
             return redirect(url_for("login"))
-        if session.get("admin_role") != "admin":
+        if session.get("admin_role") not in ("admin", "owner"):
             flash("Only admins can do that.")
+            return redirect(url_for("dashboard"))
+        return view(*args, **kwargs)
+    return wrapped_view
+
+
+def owner_required(view):
+    """Only Owners can manage admin accounts — regular Admins cannot add,
+    edit, or remove other admins/owners."""
+    @wraps(view)
+    def wrapped_view(*args, **kwargs):
+        if not session.get("admin_id"):
+            return redirect(url_for("login"))
+        if session.get("admin_role") != "owner":
+            flash("Only owners can manage admin accounts.")
             return redirect(url_for("dashboard"))
         return view(*args, **kwargs)
     return wrapped_view
@@ -362,7 +377,7 @@ def logout():
     return redirect(url_for("login"))
 
 @app.route("/admins", methods=["GET", "POST"])
-@admin_required
+@owner_required
 def admins():
     conn = get_db()
     if request.method == "POST":
@@ -370,7 +385,7 @@ def admins():
         password = request.form.get("password", "")
         full_name = request.form.get("full_name", "").strip()
         role = request.form.get("role", "admin").strip()
-        role = role if role in ("admin", "contributor") else "admin"
+        role = role if role in ("owner", "admin", "contributor") else "admin"
         if not username or not password:
             flash("Username and password are required.")
         else:
@@ -388,7 +403,7 @@ def admins():
     return render_template("admins.html", admins=rows)
 
 @app.route("/admins/<int:admin_id>/edit", methods=["GET", "POST"])
-@admin_required
+@owner_required
 def admin_edit(admin_id):
     conn = get_db()
     admin = conn.execute("SELECT id, username, full_name, role FROM admins WHERE id=?", (admin_id,)).fetchone()
@@ -399,11 +414,11 @@ def admin_edit(admin_id):
     if request.method == "POST":
         full_name = request.form.get("full_name", "").strip()
         role = request.form.get("role", "admin").strip()
-        role = role if role in ("admin", "contributor") else "admin"
+        role = role if role in ("owner", "admin", "contributor") else "admin"
         password = request.form.get("password", "")
-        if admin_id == session.get("admin_id") and role != "admin":
+        if admin_id == session.get("admin_id") and role != "owner":
             conn.close()
-            flash("You cannot demote your own admin account while logged in.")
+            flash("You cannot remove your own owner access while logged in.")
             return redirect(url_for("admins"))
         if password:
             conn.execute(
@@ -424,7 +439,7 @@ def admin_edit(admin_id):
 
 
 @app.route("/admins/<int:admin_id>/delete", methods=["POST"])
-@admin_required
+@owner_required
 def admin_delete(admin_id):
     if admin_id == session.get("admin_id"):
         flash("You cannot delete your own admin account while logged in.")
@@ -836,7 +851,7 @@ def calendar_view():
         SELECT id, title, department, meeting_date FROM meetings
         WHERE meeting_date IS NOT NULL AND meeting_date <> ''
     """).fetchall()
-    is_admin = session.get("admin_role") == "admin"
+    is_admin = session.get("admin_role") in ("admin", "owner")
     members = []
     if is_admin:
         members = conn.execute("""

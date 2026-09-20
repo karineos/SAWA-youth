@@ -5,7 +5,8 @@
 <div class="card">
   <h2>Add Admin</h2>
   <p class="label" style="margin-bottom:16px">
-    <b>Admins</b> can manage everything — members, events, meetings, forms, businesses, and other admins.
+    <b>Owners</b> can do everything an Admin can, plus add, edit, and remove admin accounts.
+    <b>Admins</b> can manage everything else — members, events, meetings, forms, businesses — but not admin accounts.
     <b>Contributors</b> can only take attendance for events and add meeting minutes (MOMs).
   </p>
   <form method="post" class="form-grid">
@@ -24,7 +25,8 @@
     <div>
       <label>Role</label>
       <select name="role">
-        <option value="admin">Admin</option>
+        <option value="owner">Owner</option>
+        <option value="admin" selected>Admin</option>
         <option value="contributor">Contributor</option>
       </select>
     </div>
@@ -47,7 +49,11 @@
         </span>
       </td>
       <td data-label="Username">{{ a.username }}</td>
-      <td data-label="Role"><span class="pill {{ 'success' if a.role == 'admin' else 'muted' }}">{{ 'Admin' if a.role == 'admin' else 'Contributor' }}</span></td>
+      <td data-label="Role">
+        {% if a.role == 'owner' %}<span class="pill">Owner</span>
+        {% elif a.role == 'admin' %}<span class="pill success">Admin</span>
+        {% else %}<span class="pill muted">Contributor</span>{% endif %}
+      </td>
       <td data-label="Created">{{ a.created_at }}</td>
       <td class="actions" data-label="Action">
         <a class="btn secondary" href="{{ url_for('admin_edit', admin_id=a.id) }}">Edit</a>

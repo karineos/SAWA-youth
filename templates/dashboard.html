@@ -26,6 +26,42 @@
   <a class="card stat-card" href="{{ url_for('meetings') }}"><div class="stat-card-icon">{{ icons.icon('meeting') }}</div><div class="stat">{{ stats.meetings }}</div><div class="label">Meetings</div></a>
 </div>
 
+{% if reminders.total %}
+<div class="card">
+  <h2 class="icon-title">{{ icons.icon('meeting') }} Reminders</h2>
+  {% if reminders.upcoming %}
+  <h3 class="remind-head">Coming up in the next 7 days</h3>
+  {% for r in reminders.upcoming %}
+  <div class="remind-row">
+    <span class="pill">{{ r.kind }}</span>
+    <a href="{{ r.url }}">{{ r.label }}</a>
+    <span class="label">{% if r.when == reminders.today %}Today{% else %}{{ r.when }}{% endif %}{% if r.time %} · {{ r.time }}{% endif %}</span>
+  </div>
+  {% endfor %}
+  {% endif %}
+  {% if reminders.tasks %}
+  <h3 class="remind-head">Action items due</h3>
+  {% for t in reminders.tasks %}
+  <div class="remind-row">
+    {% if t.due_date < reminders.today %}<span class="pill danger-pill">Overdue</span>{% else %}<span class="pill">Due {{ t.due_date }}</span>{% endif %}
+    <a href="{{ url_for('meeting_detail', meeting_id=t.meeting_id) }}">{{ t.title }}</a>
+    <span class="label">{{ t.owner_name or 'No owner' }} · {{ t.meeting_title }}</span>
+  </div>
+  {% endfor %}
+  {% endif %}
+  {% if reminders.businesses %}
+  <h3 class="remind-head">Businesses due for a reassessment</h3>
+  {% for b in reminders.businesses %}
+  <div class="remind-row">
+    <span class="pill muted">{{ b.why }}</span>
+    <a href="{{ url_for('business_assessment_new', business_id=b.id) }}">{{ b.name }}</a>
+    <span class="label">Add an assessment</span>
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>
+{% endif %}
+
 {% if session.get('admin_role') in ['admin', 'owner'] and birthdays %}
 <div class="card">
   <div class="page-header" style="margin-bottom:14px">

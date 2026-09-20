@@ -29,6 +29,7 @@
         {% if session.get('admin_role') in ['admin', 'owner'] %}
         <p class="nav-heading">People</p>
         <a class="{{ 'active' if request.endpoint in ['members','member_new','member_detail','member_edit'] }}" href="{{ url_for('members') }}">{{ icons.icon('users') }}<span>Members</span></a>
+        <a class="{{ 'active' if request.endpoint == 'broadcast' }}" href="{{ url_for('broadcast') }}">{{ icons.icon('chat') }}<span>Message a Group</span></a>
         {% endif %}
 
         <p class="nav-heading">Programs</p>
@@ -39,6 +40,7 @@
 
         <p class="nav-heading">Meetings</p>
         <a class="{{ 'active' if request.endpoint in ['meetings','meeting_new','meeting_edit','meeting_detail'] }}" href="{{ url_for('meetings') }}">{{ icons.icon('meeting') }}<span>Meetings &amp; MOMs</span></a>
+        <a class="{{ 'active' if request.endpoint == 'tasks' }}" href="{{ url_for('tasks') }}">{{ icons.icon('check') }}<span>Action Items</span></a>
 
         {% if session.get('admin_role') in ['admin', 'owner'] %}
         <p class="nav-heading">Small Businesses</p>

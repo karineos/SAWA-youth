@@ -10,6 +10,9 @@
     {% if session.get('admin_role') in ['admin', 'owner'] %}
     <a class="btn secondary" href="{{ url_for('attendance', q=event.name) }}">View Raw Attendance</a>
     {% endif %}
+    {% if session.get('admin_role') in ['admin', 'owner'] %}
+    <a class="btn secondary" href="{{ url_for('broadcast', audience='event:' ~ event.id) }}">Message Attendees</a>
+    {% endif %}
     <a class="btn" href="{{ url_for('take_attendance', event_id=event.id) }}">Take Attendance</a>
   </div>
 </div>

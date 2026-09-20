@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Message a Group</h1>
+    <p class="label">Pick who to message and write the text. You'll get one WhatsApp button per person with your message already filled in — tap each one to send.</p>
+  </div>
+</div>
+
+<form class="card" method="get">
+  <div class="form-grid">
+    <div class="full">
+      <label>Who?</label>
+      <select name="audience" required>
+        <option value="">Choose a group...</option>
+        <optgroup label="Everyone">
+          <option value="members" {% if audience == 'members' %}selected{% endif %}>All members</option>
+          <option value="guests" {% if audience == 'guests' %}selected{% endif %}>All guests</option>
+          <option value="all" {% if audience == 'all' %}selected{% endif %}>Members and guests</option>
+        </optgroup>
+        {% if events %}
+        <optgroup label="Event attendees">
+          {% for e in events %}<option value="event:{{ e.id }}" {% if audience == 'event:' ~ e.id %}selected{% endif %}>{{ e.name }}</option>{% endfor %}
+        </optgroup>
+        {% endif %}
+        {% if sessions %}
+        <optgroup label="Session attendees">
+          {% for s in sessions %}<option value="session:{{ s.id }}" {% if audience == 'session:' ~ s.id %}selected{% endif %}>{{ s.event_name }} — {{ s.name }}</option>{% endfor %}
+        </optgroup>
+        {% endif %}
+      </select>
+    </div>
+    <div class="full">
+      <label>Message</label>
+      <textarea name="message" placeholder="Hi {name}, a reminder that...">{{ message }}</textarea>
+      <span class="label" style="margin-top:6px">Tip: <b>{name}</b> is replaced with each person's first name.</span>
+    </div>
+  </div>
+  <br>
+  <button class="btn">Prepare Messages</button>
+</form>
+
+{% if label %}
+<div class="card scroll">
+  <h2 style="padding:16px 16px 4px">{{ label }} — {{ with_phone|length }} with a phone number</h2>
+  <p class="label" style="padding:0 16px 12px">
+    <span id="sent-count">0</span> of {{ with_phone|length }} sent. Each button opens WhatsApp in a new tab.
+    {% if not message %}<b>Write a message above first</b> — otherwise the chats will open empty.{% endif %}
+  </p>
+  <table class="wide stack-table">
+    <tr><th>Name</th><th>Phone</th><th>Send</th></tr>
+    {% for r in with_phone %}
+    <tr>
+      <td data-label="Name">{{ r.name }}</td>
+      <td data-label="Phone">{{ r.phone }}</td>
+      <td data-label="Send"><a class="btn wa-send" target="_blank" rel="noopener" href="{{ r.link }}">Send on WhatsApp</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3"><div class="empty-state">No one in this group has a phone number.</div></td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% if without_phone %}
+<div class="card">
+  <h2>No phone number on file ({{ without_phone|length }})</h2>
+  <p class="label">{% for r in without_phone %}{{ r.name }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+</div>
+{% endif %}
+{% elif audience %}
+<div class="card"><div class="empty-state">That group wasn't found.</div></div>
+{% endif %}
+
+<script>
+document.querySelectorAll('.wa-send').forEach(function (a) {
+  a.addEventListener('click', function () {
+    if (a.classList.contains('sent')) return;
+    a.classList.add('sent');
+    a.classList.add('secondary');
+    a.textContent = 'Sent ✓';
+    document.getElementById('sent-count').textContent = document.querySelectorAll('.wa-send.sent').length;
+  });
+});
+</script>
+{% endblock %}

@@ -42,6 +42,42 @@
 </div>
 
 <div class="card">
+  <h2 class="section-title">Action Items — {{ tasks|selectattr('is_done', 'equalto', 0)|list|length }} open</h2>
+  <form method="post" action="{{ url_for('meeting_task_add', meeting_id=meeting.id) }}" class="task-add">
+    <input name="title" required placeholder="What needs to be done?">
+    <input name="owner_name" list="task-owners" placeholder="Who is responsible?">
+    <datalist id="task-owners">{% for o in known_owners %}<option value="{{ o }}">{% endfor %}</datalist>
+    <input type="date" name="due_date" title="Due date">
+    <button class="btn">+ Add</button>
+  </form>
+  {% for t in tasks %}
+  {% set overdue = (not t.is_done) and t.due_date and t.due_date < today %}
+  <div class="task-row{% if t.is_done %} done{% endif %}">
+    <form method="post" action="{{ url_for('task_toggle', task_id=t.id) }}">
+      <input type="hidden" name="next" value="{{ url_for('meeting_detail', meeting_id=meeting.id) }}">
+      <button class="task-check" title="{{ 'Mark not done' if t.is_done else 'Mark done' }}">{{ '✓' if t.is_done else '' }}</button>
+    </form>
+    <div class="task-body">
+      <b>{{ t.title }}</b>
+      <span class="label">
+        {% if t.owner_name %}{{ t.owner_name }}{% else %}No owner{% endif %}
+        {% if t.due_date %} · due {{ t.due_date }}{% endif %}
+      </span>
+      {% if overdue %}<span class="pill danger-pill">Overdue</span>{% endif %}
+    </div>
+    {% if session.get('admin_role') in ['admin', 'owner'] %}
+    <form method="post" action="{{ url_for('task_delete', task_id=t.id) }}" onsubmit="return confirm('Delete this action item?')">
+      <input type="hidden" name="next" value="{{ url_for('meeting_detail', meeting_id=meeting.id) }}">
+      <button class="btn danger">Delete</button>
+    </form>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="empty-state">No action items yet.</div>
+  {% endfor %}
+</div>
+
+<div class="card">
   <h2 class="section-title">Minutes of Meeting — {{ minutes|length }} entry(ies)</h2>
   {% for m in minutes %}
   <div style="padding:14px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">

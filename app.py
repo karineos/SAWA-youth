@@ -51,7 +51,7 @@ def whatsapp_share_url(text):
 app.jinja_env.globals["whatsapp_share_url"] = whatsapp_share_url
 
 
-def whatsapp_chat_url(phone):
+def whatsapp_chat_url(phone, text=None):
     """Build a WhatsApp click-to-chat link from a member's phone number.
 
     Numbers in this CRM are entered in local Lebanese format (with or
@@ -66,7 +66,10 @@ def whatsapp_chat_url(phone):
         digits = digits[2:]
     if not digits.startswith("961"):
         digits = "961" + digits.lstrip("0")
-    return f"https://wa.me/{digits}"
+    url = f"https://wa.me/{digits}"
+    if text:
+        url += f"?text={quote(text)}"
+    return url
 
 
 app.jinja_env.globals["whatsapp_chat_url"] = whatsapp_chat_url
@@ -593,8 +596,11 @@ def meeting_detail(meeting_id):
         WHERE mm.meeting_id = ?
         ORDER BY mm.created_at DESC
     """, (meeting_id,)).fetchall()
+    tasks = conn.execute(TASK_ORDER_SQL.format(where="WHERE t.meeting_id = ?"), (meeting_id,)).fetchall()
+    known_owners = sorted({r["full_name"] or r["username"] for r in conn.execute("SELECT full_name, username FROM admins").fetchall()})
     conn.close()
-    return render_template("meeting_detail.html", meeting=meeting, minutes=minutes)
+    return render_template("meeting_detail.html", meeting=meeting, minutes=minutes, tasks=tasks,
+                           known_owners=known_owners, today=date.today().isoformat())
 
 
 @app.route("/meetings/<int:meeting_id>/minutes", methods=["POST"])
@@ -638,6 +644,219 @@ def meeting_minutes_delete(minutes_id):
     conn.close()
     flash("Minutes deleted.")
     return redirect(url_for("meeting_detail", meeting_id=meeting_id))
+
+
+TASK_ORDER_SQL = """
+    SELECT t.*, m.title AS meeting_title
+    FROM meeting_tasks t
+    JOIN meetings m ON m.id = t.meeting_id
+    {where}
+    ORDER BY t.is_done ASC,
+             CASE WHEN t.due_date IS NULL OR t.due_date = '' THEN 1 ELSE 0 END,
+             t.due_date ASC, t.id DESC
+"""
+
+
+def safe_next(default_endpoint, **values):
+    target = request.form.get("next", "")
+    if target.startswith("/") and not target.startswith("//"):
+        return redirect(target)
+    return redirect(url_for(default_endpoint, **values))
+
+
+@app.route("/meetings/<int:meeting_id>/tasks", methods=["POST"])
+@login_required
+def meeting_task_add(meeting_id):
+    title = request.form.get("title", "").strip()
+    conn = get_db()
+    meeting = conn.execute("SELECT id, title FROM meetings WHERE id=?", (meeting_id,)).fetchone()
+    if not meeting:
+        conn.close()
+        flash("Meeting not found.")
+        return redirect(url_for("meetings"))
+    if not title:
+        conn.close()
+        flash("Please write what needs to be done.")
+        return redirect(url_for("meeting_detail", meeting_id=meeting_id))
+    cur = conn.execute(
+        "INSERT INTO meeting_tasks(meeting_id, title, owner_name, due_date, created_by) VALUES (?, ?, ?, ?, ?) RETURNING id",
+        (meeting_id, title, request.form.get("owner_name", "").strip(),
+         request.form.get("due_date", "").strip(), session.get("admin_id"))
+    )
+    log_activity(conn, "added", "meeting_task", get_new_id(cur), meeting["title"], title[:120])
+    conn.commit()
+    conn.close()
+    flash("Action item added.")
+    return redirect(url_for("meeting_detail", meeting_id=meeting_id))
+
+
+@app.route("/tasks/<int:task_id>/toggle", methods=["POST"])
+@login_required
+def task_toggle(task_id):
+    conn = get_db()
+    task = conn.execute("SELECT id, meeting_id, title, is_done FROM meeting_tasks WHERE id=?", (task_id,)).fetchone()
+    if not task:
+        conn.close()
+        flash("Action item not found.")
+        return redirect(url_for("tasks"))
+    if task["is_done"]:
+        conn.execute("UPDATE meeting_tasks SET is_done=0, completed_at=NULL WHERE id=?", (task_id,))
+        log_activity(conn, "reopened", "meeting_task", task_id, task["title"])
+    else:
+        conn.execute("UPDATE meeting_tasks SET is_done=1, completed_at=datetime('now') WHERE id=?", (task_id,))
+        log_activity(conn, "completed", "meeting_task", task_id, task["title"])
+    conn.commit()
+    conn.close()
+    return safe_next("meeting_detail", meeting_id=task["meeting_id"])
+
+
+@app.route("/tasks/<int:task_id>/delete", methods=["POST"])
+@admin_required
+def task_delete(task_id):
+    conn = get_db()
+    task = conn.execute("SELECT meeting_id, title FROM meeting_tasks WHERE id=?", (task_id,)).fetchone()
+    if not task:
+        conn.close()
+        flash("Action item not found.")
+        return redirect(url_for("tasks"))
+    conn.execute("DELETE FROM meeting_tasks WHERE id=?", (task_id,))
+    log_activity(conn, "deleted", "meeting_task", task_id, task["title"])
+    conn.commit()
+    conn.close()
+    flash("Action item deleted.")
+    return safe_next("meeting_detail", meeting_id=task["meeting_id"])
+
+
+@app.route("/tasks")
+@login_required
+def tasks():
+    status = request.args.get("status", "open")
+    q = request.args.get("q", "").strip()
+    clauses, params = [], []
+    if status == "open":
+        clauses.append("t.is_done = 0")
+    elif status == "done":
+        clauses.append("t.is_done = 1")
+    if q:
+        clauses.append("(t.title LIKE ? OR t.owner_name LIKE ? OR m.title LIKE ?)")
+        params += [f"%{q}%"] * 3
+    where = "WHERE " + " AND ".join(clauses) if clauses else ""
+    conn = get_db()
+    rows = conn.execute(TASK_ORDER_SQL.format(where=where), params).fetchall()
+    conn.close()
+    return render_template("tasks.html", tasks=rows, status=status, q=q, today=date.today().isoformat())
+
+
+REMINDER_WINDOW_DAYS = 7
+REASSESS_AFTER_DAYS = 90
+
+
+def build_reminders(conn, include_businesses):
+    """Everything worth a nudge: meetings/events/sessions coming up in the
+    next week, action items that are overdue or due within the week, and
+    (admins only) businesses that haven't been assessed in a while."""
+    today = date.today()
+    start, end = today.isoformat(), (today + timedelta(days=REMINDER_WINDOW_DAYS)).isoformat()
+    upcoming = []
+    for m in conn.execute(
+        "SELECT id, title, department, meeting_date, meeting_time FROM meetings WHERE meeting_date >= ? AND meeting_date <= ?",
+        (start, end)
+    ).fetchall():
+        label = f'{m["department"]} — {m["title"]}' if m["department"] else m["title"]
+        upcoming.append({"kind": "Meeting", "label": label, "when": m["meeting_date"], "time": m["meeting_time"] or "",
+                         "url": url_for("meeting_detail", meeting_id=m["id"])})
+    for e in conn.execute(
+        "SELECT id, name, event_date FROM events WHERE event_date >= ? AND event_date <= ?", (start, end)
+    ).fetchall():
+        upcoming.append({"kind": "Event", "label": e["name"], "when": e["event_date"], "time": "",
+                         "url": url_for("event_attendees", event_id=e["id"])})
+    for s in conn.execute(
+        """SELECT s.id, s.name, s.session_date, e.name AS event_name FROM sessions s
+           JOIN events e ON e.id = s.event_id WHERE s.session_date >= ? AND s.session_date <= ?""", (start, end)
+    ).fetchall():
+        upcoming.append({"kind": "Session", "label": f'{s["event_name"]} — {s["name"]}', "when": s["session_date"], "time": "",
+                         "url": url_for("session_attendees", session_id=s["id"])})
+    upcoming.sort(key=lambda r: (r["when"], r["time"]))
+
+    due_tasks = conn.execute(
+        TASK_ORDER_SQL.format(where="WHERE t.is_done = 0 AND t.due_date IS NOT NULL AND t.due_date <> '' AND t.due_date <= ?"),
+        (end,)
+    ).fetchall()
+
+    businesses = []
+    if include_businesses:
+        rows = conn.execute("""
+            SELECT b.id, b.business_name, b.created_at, COUNT(ba.id) AS assessment_count,
+                   MAX(ba.assessment_date) AS last_assessed
+            FROM businesses b LEFT JOIN business_assessments ba ON ba.business_id = b.id
+            GROUP BY b.id, b.business_name, b.created_at
+        """).fetchall()
+        for b in rows:
+            created = str(b["created_at"] or "")[:10]
+            last = (b["last_assessed"] or "").strip()
+            try:
+                if b["assessment_count"] == 0:
+                    if created and (today - date.fromisoformat(created)).days >= 14:
+                        businesses.append({"name": b["business_name"], "why": "Never assessed", "id": b["id"], "sort": created})
+                elif last:
+                    days = (today - date.fromisoformat(last)).days
+                    if days >= REASSESS_AFTER_DAYS:
+                        businesses.append({"name": b["business_name"], "why": f"Last assessed {days} days ago", "id": b["id"], "sort": last})
+            except ValueError:
+                continue
+        businesses.sort(key=lambda r: r["sort"])
+    return {"upcoming": upcoming, "tasks": due_tasks, "businesses": businesses,
+            "today": start, "total": len(upcoming) + len(due_tasks) + len(businesses)}
+
+
+def broadcast_audiences(conn):
+    events = conn.execute("SELECT id, name FROM events ORDER BY name").fetchall()
+    sessions = conn.execute(
+        "SELECT s.id, s.name, e.name AS event_name FROM sessions s JOIN events e ON e.id = s.event_id ORDER BY e.name, s.session_date"
+    ).fetchall()
+    return events, sessions
+
+
+def broadcast_recipients(conn, audience):
+    """Returns (label, rows) for an audience key, or (None, []) if unknown."""
+    base = "SELECT DISTINCT m.id, m.full_name_en, m.phone FROM members m"
+    if audience in ("members", "guests", "all"):
+        where = {"members": "WHERE COALESCE(m.member_type, 'member') = 'member'",
+                 "guests": "WHERE m.member_type = 'guest'", "all": ""}[audience]
+        label = {"members": "All members", "guests": "All guests", "all": "Everyone (members and guests)"}[audience]
+        return label, conn.execute(f"{base} {where} ORDER BY m.full_name_en").fetchall()
+    kind, _, raw_id = audience.partition(":")
+    if kind in ("event", "session") and raw_id.isdigit():
+        if kind == "event":
+            ev = conn.execute("SELECT name FROM events WHERE id=?", (int(raw_id),)).fetchone()
+            if not ev:
+                return None, []
+            rows = conn.execute(f"{base} JOIN attendance a ON a.member_id = m.id WHERE a.event_id = ? ORDER BY m.full_name_en", (int(raw_id),)).fetchall()
+            return f'Attendees of {ev["name"]}', rows
+        se = conn.execute("SELECT s.name, e.name AS event_name FROM sessions s JOIN events e ON e.id = s.event_id WHERE s.id=?", (int(raw_id),)).fetchone()
+        if not se:
+            return None, []
+        rows = conn.execute(f"{base} JOIN attendance a ON a.member_id = m.id WHERE a.session_id = ? ORDER BY m.full_name_en", (int(raw_id),)).fetchall()
+        return f'Attendees of {se["event_name"]} — {se["name"]}', rows
+    return None, []
+
+
+@app.route("/broadcast")
+@admin_required
+def broadcast():
+    audience = request.args.get("audience", "").strip()
+    message = request.args.get("message", "").strip()
+    conn = get_db()
+    events, sessions = broadcast_audiences(conn)
+    label, rows = broadcast_recipients(conn, audience) if audience else (None, [])
+    conn.close()
+    with_phone, without_phone = [], []
+    for r in rows:
+        first = (r["full_name_en"] or "").split()[0] if (r["full_name_en"] or "").strip() else ""
+        link = whatsapp_chat_url(r["phone"], message.replace("{name}", first)) if r["phone"] else None
+        (with_phone if link else without_phone).append({"name": r["full_name_en"], "phone": r["phone"], "link": link})
+    return render_template("broadcast.html", audience=audience, message=message, label=label,
+                           events=events, sessions=sessions, with_phone=with_phone, without_phone=without_phone)
 
 
 BUSINESS_FIELDS = ["business_name", "owner_name", "phone", "sector", "location", "date_opened", "notes"]
@@ -856,9 +1075,11 @@ def dashboard():
         SELECT id, full_name_en, birth_date FROM members
         WHERE birth_date IS NOT NULL AND birth_date <> '' AND COALESCE(member_type, 'member') = 'member'
     """).fetchall()
+    reminders = build_reminders(conn, include_businesses=session.get("admin_role") in ("admin", "owner"))
     conn.close()
     birthdays = upcoming_birthdays(birthday_members)
-    return render_template("dashboard.html", stats=stats, top_members=top_members, event_counts=event_counts, birthdays=birthdays)
+    return render_template("dashboard.html", stats=stats, top_members=top_members, event_counts=event_counts,
+                           birthdays=birthdays, reminders=reminders)
 
 
 @app.route("/calendar")

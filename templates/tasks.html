@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Action Items</h1>
+    <p class="label">Tasks coming out of meetings — who owns each one and when it's due. Add new ones from a meeting's page.</p>
+  </div>
+</div>
+
+<form class="search">
+  <input name="q" placeholder="Search by task, owner, or meeting..." value="{{ q }}">
+  <select name="status" style="margin-top:10px">
+    <option value="open" {% if status == 'open' %}selected{% endif %}>Open</option>
+    <option value="done" {% if status == 'done' %}selected{% endif %}>Done</option>
+    <option value="all" {% if status == 'all' %}selected{% endif %}>All</option>
+  </select>
+  <button class="btn">Filter</button>
+</form>
+
+<div class="card scroll">
+  <table class="wide stack-table">
+    <tr><th></th><th>Task</th><th>Owner</th><th>Due</th><th>Meeting</th><th>Actions</th></tr>
+    {% for t in tasks %}
+    {% set overdue = (not t.is_done) and t.due_date and t.due_date < today %}
+    <tr>
+      <td>
+        <form method="post" action="{{ url_for('task_toggle', task_id=t.id) }}">
+          <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+          <button class="task-check{% if t.is_done %} checked{% endif %}" title="{{ 'Mark not done' if t.is_done else 'Mark done' }}">{{ '✓' if t.is_done else '' }}</button>
+        </form>
+      </td>
+      <td data-label="Task"><b{% if t.is_done %} style="text-decoration:line-through;color:var(--muted)"{% endif %}>{{ t.title }}</b></td>
+      <td data-label="Owner">{{ t.owner_name or '' }}</td>
+      <td data-label="Due">{{ t.due_date or '' }}{% if overdue %} <span class="pill danger-pill">Overdue</span>{% endif %}</td>
+      <td data-label="Meeting"><a href="{{ url_for('meeting_detail', meeting_id=t.meeting_id) }}">{{ t.meeting_title }}</a></td>
+      <td class="actions" data-label="Actions">
+        {% if session.get('admin_role') in ['admin', 'owner'] %}
+        <form method="post" action="{{ url_for('task_delete', task_id=t.id) }}" onsubmit="return confirm('Delete this action item?')">
+          <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+          <button class="btn danger">Delete</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6"><div class="empty-state">{% if q %}No action items match "{{ q }}".{% elif status == 'open' %}Nothing open — all caught up.{% else %}No action items yet.{% endif %}</div></td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}
